@@ -14,6 +14,25 @@
 
 #include "io.h"
 
+////////////////////////////////////////////////////
+// Global variables:
+// 1) download ID
+// 2) download path
+// 3) multi-subject template directory
+// 4) smoothing
+//
+// addtional variables needed for anatomy page:
+// 1) subject ID (saved a free-surfer directory)
+//
+// addtional variables needed for EPI page:
+// 1) fMRI run list
+//
+// addtional variables needed for PET page:
+//
+//
+
+////////////////////////////////////////////////////
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT

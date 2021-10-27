@@ -178,9 +178,8 @@ void MainWindow::alignAnatomyToTemplate()
     arguments.append("alignment");
     arguments.append("-T");
     arguments.append(_anatomyTemplateDirectory->text());
-    QString processName = "/Users/jbm/QtApps/build-FM-Desktop_Qt_5_12_2_clang_64bit-Release/FM.app/Contents/MacOS/FM";
-    qInfo() << processName << arguments;
-    process->start(processName,arguments);
+    qInfo() << _fastmapProcess << arguments;
+    process->start(_fastmapProcess,arguments);
 
     FUNC_EXIT;
 }

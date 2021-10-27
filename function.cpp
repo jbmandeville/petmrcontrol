@@ -225,6 +225,10 @@ void MainWindow::resliceEPI()
             + "/" + _fMRIFileNameBox->currentText();
     arguments.append(templateFileName);
     arguments.append("--preprocess");
+    arguments.append("reslice");
+    arguments.append("--output-file");
+    arguments.append("reslice");
+    arguments.append("--quit");
     for (int jFile=0; jFile<_fMRIFiles.size(); jFile++)
     {
         bool includeFile = _fMRIRunItems[jFile].checkState();
@@ -239,9 +243,8 @@ void MainWindow::resliceEPI()
                 arguments.append(_fMRIFiles[jFile].name);
         }
     }
-    QString processName = "/Users/jbm/QtApps/build-FM-Desktop_Qt_5_12_2_clang_64bit-Release/FM.app/Contents/MacOS/FM";
-    FUNC_INFO << processName << arguments;
-    process->start(processName,arguments);
+    FUNC_INFO << _fastmapProcess << arguments;
+    process->start(_fastmapProcess,arguments);
 
     FUNC_EXIT;
 }
@@ -276,9 +279,8 @@ void MainWindow::alignEPI()
         if ( includeFile )
             arguments.append(_fMRIFiles[jFile].name);
     }
-    QString processName = "/Users/jbm/QtApps/build-FM-Desktop_Qt_5_12_2_clang_64bit-Release/FM.app/Contents/MacOS/FM";
-    FUNC_INFO << processName << arguments;
-    process->start(processName,arguments);
+    FUNC_INFO << _fastmapProcess << arguments;
+    process->start(_fastmapProcess,arguments);
 
     FUNC_EXIT;
 }
