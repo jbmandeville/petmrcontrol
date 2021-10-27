@@ -24,4 +24,5 @@ SOURCES += main.cpp\
 
 HEADERS  += petmrMain.h \
     ImageIO.h \
-    io.h
+    io.h \
+    nifti1.h
