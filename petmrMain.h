@@ -20,6 +20,10 @@ class MainWindow : public QMainWindow
 
 private:
 
+    QString _fastmapProcess     = "/Users/jbm/QtApps/build-FM-Desktop_Qt_5_12_2_clang_64bit-Release/FM.app/Contents/MacOS/FM";
+    QString _findsessionProcess = "/usr/pubsw/bin/findsession";
+    QString _scriptDirectory    = "/homes/1/jbm/script/analyze-fm/";
+
     enum tabPages
     {
         page_download,

@@ -50,9 +50,9 @@ void MainWindow::queryDownloadPaths()
     QStringList arguments;
     arguments.append(_subjectIDDownload->text());
     QProcess process;
-    process.startDetached("/usr/pubsw/bin/findsession",arguments);
+    process.startDetached(_findsessionProcess,arguments);
 
-    process.start("/usr/pubsw/bin/findsession",arguments);
+    process.start(_findsessionProcess,arguments);
     process.waitForFinished(10000);
     QString output = process.readAllStandardOutput();
 
@@ -71,9 +71,6 @@ void MainWindow::queryDownloadPaths()
 
     _downloadID->setText(subject);
     _downloadPath->setText(path);
-
-    process.startDetached("/usr/pubsw/bin/findsession",arguments);
-
     _downloadDataButton->setEnabled(true);
 
 }
@@ -93,8 +90,9 @@ void MainWindow::downloadData()
 
     QStringList arguments;
     arguments.append(_downloadPath->text());
-    qInfo() << "/homes/1/jbm/script/analyze-fm/unpack.csh" << arguments;
-    process->start("/homes/1/jbm/script/analyze-fm/unpack.csh",arguments);
+    QString exe = _scriptDirectory + "unpack.csh";
+    qInfo() <<  exe << arguments;
+    process->start(exe,arguments);
 
     qInfo() << "unpacksdcmdir" << arguments;
 }
