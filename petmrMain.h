@@ -18,6 +18,7 @@
 // Global variables:
 // 1) download ID   (could be take from log file in principle)
 // 2) download path (could be take from log file in principle)
+
 // 3) multi-subject template directory (currently qsettings; should be local)
 // 4) smoothing
 //
