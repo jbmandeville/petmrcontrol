@@ -40,15 +40,31 @@ void MainWindow::createAnatomyPage()
     auto *freeBox = new QGroupBox("Run FreeSurfer to delineate anatomy (takes HOURS)");
     freeBox->setLayout(freeSurferLayout);
 
+    QString freeDir = "free";
+    QFileInfo checkDir(freeDir);
+    if (checkDir.exists() && checkDir.isDir())
+    {
+        // get subject name
+        getSubjectNameFromFreeDir();
+        freeBox->setEnabled(false);
+    }
+
     ////////////////////////////////////////////////
     // anatomy registration
     ////////////////////////////////////////////////
     auto *anatInputFileLabel  = new QLabel("Input file: ",_anatomyPage);
     auto *templateDirLabel    = new QLabel("Template directory: ",_anatomyPage);
-    auto *anatOutputFileLabel = new QLabel("Output file: ",_anatomyPage);
     _anatomyFileNameBox       = new QComboBox();
     _anatomyInputFile         = new QLabel("Input file = ?");
-    _anatomyTemplateDirectory = new QLabel(_lastTemplateDirectory);
+    _anatomyTemplateDirectory = new QComboBox();
+    int iSelection = 0;
+    for (int jList=0; jList<_FastmapMSTemplateDirectories.count(); jList+=2)
+    {
+        _anatomyTemplateDirectory->addItem(_FastmapMSTemplateDirectories.at(jList));
+        if ( !_lastTemplateDirectory.compare(_FastmapMSTemplateDirectories.at(jList)) )
+            iSelection = jList/2;
+    }
+    _anatomyTemplateDirectory->setCurrentIndex(iSelection);
 
     auto *anatomyFileLayout = new QGridLayout();
     anatomyFileLayout->addWidget(anatInputFileLabel,0,0);
@@ -58,13 +74,10 @@ void MainWindow::createAnatomyPage()
     anatomyFileLayout->setSpacing(0);
 
     auto *anatomyLayout = new QVBoxLayout();
-    _selectTemplateDirectoryButton = new QPushButton("Select template",_anatomyPage);
     _alignAnatomyToTemplateButton  = new QPushButton("Align to template",_anatomyPage);
-    connect(_selectTemplateDirectoryButton, SIGNAL(pressed()), this, SLOT(selectTemplateDirectory()));
     connect(_alignAnatomyToTemplateButton, SIGNAL(pressed()), this, SLOT(alignAnatomyToTemplate()));
 
     anatomyLayout->addLayout(anatomyFileLayout);
-    anatomyLayout->addWidget(_selectTemplateDirectoryButton);
     anatomyLayout->addWidget(_alignAnatomyToTemplateButton);
 
     auto *anatomyBox = new QGroupBox("Use fastmap to align anatomy to a multi-subject template");
@@ -79,6 +92,16 @@ void MainWindow::createAnatomyPage()
     pageLayout->addWidget(anatomyBox);
     pageLayout->setSpacing(0);
     _anatomyPage->setLayout(pageLayout);
+}
+
+void MainWindow::getSubjectNameFromFreeDir()
+{
+    // Read the time model file
+    QDir const freeDir("./free");
+    QStringList const folderList = freeDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks);
+    FUNC_INFO << folderList;
+    if ( folderList.count() == 1 )
+        _subjectIDFreeSurfer->setText(folderList.at(0));
 }
 
 void MainWindow::openedAnatomyPage()
@@ -154,7 +177,7 @@ void MainWindow::openedAnatomyPage()
     // Enable/disable:  // if anatomy file was found, it can be used for either freeSurfer or alignment
     bool enable = _anatomyFileNameBox->count() > 0;
     _runFreeSurferButton->setEnabled(enable);
-    fileName = _anatomyTemplateDirectory->text();
+    fileName = _anatomyTemplateDirectory->currentText();
 //    enable &= fileName.compare("unknown",Qt::CaseInsensitive);
     _alignAnatomyToTemplateButton->setEnabled(enable);
 }
@@ -177,7 +200,7 @@ void MainWindow::alignAnatomyToTemplate()
     arguments.append("-O");
     arguments.append("alignment");
     arguments.append("-T");
-    arguments.append(_anatomyTemplateDirectory->text());
+    arguments.append(_anatomyTemplateDirectory->currentText());
     qInfo() << _fastmapProcess << arguments;
     process->start(_fastmapProcess,arguments);
 
@@ -188,15 +211,4 @@ void MainWindow::finishedFMAnatomyAlignment(int exitCode, QProcess::ExitStatus e
 {
     qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
     _centralWidget->setEnabled(true);
-}
-
-void MainWindow::selectTemplateDirectory()
-{
-        QString dirName = QFileDialog::getExistingDirectory(this, tr("Select a template directory"),
-                                                            QDir::currentPath(),
-                                                            QFileDialog::ShowDirsOnly
-                                                            | QFileDialog::DontResolveSymlinks);
-        _anatomyTemplateDirectory->setText(dirName);
-        _lastTemplateDirectory = dirName;
-        writeQSettings();
 }

@@ -7,6 +7,19 @@ MainWindow::~MainWindow()
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
+    QCoreApplication::setOrganizationName("Martinos");
+    QCoreApplication::setOrganizationDomain("http://www.nmr.mgh.harvard.edu");
+    QCoreApplication::setApplicationVersion("3.0");
+    QCoreApplication::setApplicationName("fastmap");
+    QSettings fmSettings;
+    _FastmapMSTemplateDirectories = fmSettings.value("templateDirectories","").toStringList();
+    FUNC_INFO << "template directories" << _FastmapMSTemplateDirectories;
+
+    QCoreApplication::setOrganizationName("Martinos");
+    QCoreApplication::setOrganizationDomain("http://www.nmr.mgh.harvard.edu");
+    QCoreApplication::setApplicationVersion("3.0");
+    QCoreApplication::setApplicationName("petmrcontrol");
+
     readQSettings();
 
     _tabs = new QTabWidget();
@@ -91,6 +104,6 @@ void MainWindow::readQSettings()
 
 void MainWindow::writeQSettings()
 {
-    _savedQSettings.setValue("lastTemplateDirectory",_lastTemplateDirectory);
+    _savedQSettings.setValue("lastTemplateDirectory",_anatomyTemplateDirectory->currentText());
     _savedQSettings.sync();
 }

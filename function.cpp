@@ -272,7 +272,9 @@ void MainWindow::alignEPI()
     arguments.append("-O");
     arguments.append("align");
     arguments.append("-T");
-    arguments.append(_anatomyTemplateDirectory->text());
+    arguments.append(_anatomyTemplateDirectory->currentText());
+    arguments.append("--output-file");
+    arguments.append("align");
     for (int jFile=0; jFile<_fMRIFiles.size(); jFile++)
     {
         bool includeFile = _fMRIRunItems[jFile].checkState();

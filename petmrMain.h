@@ -16,13 +16,10 @@
 
 ////////////////////////////////////////////////////
 // Global variables:
-// 1) download ID
-// 2) download path
-// 3) multi-subject template directory
+// 1) download ID   (could be take from log file in principle)
+// 2) download path (could be take from log file in principle)
+// 3) multi-subject template directory (currently qsettings; should be local)
 // 4) smoothing
-//
-// addtional variables needed for anatomy page:
-// 1) subject ID (saved a free-surfer directory)
 //
 // addtional variables needed for EPI page:
 // 1) fMRI run list
@@ -49,10 +46,36 @@ private:
         page_anatomy,
         page_fMRI
     };
+    enum scanCategory
+    {
+        category_scout,
+        category_T1,
+        category_EPI,
+        category_PET,
+        category_MRAC,
+        category_VIBE,
+        category_UTE,
+        category_UNKNOWN
+    };
     struct FourDFile
     {
         QString name;
         iPoint4D dim;
+    };
+    struct programVariables
+    {
+        QString downloadID;
+        QString downloadPath;
+        QString subjectID;
+    } _savedToDisk;
+    struct downloadScan
+    {
+        QString scanNumber;
+        QString sequenceName;
+        iPoint4D dim;
+        scanCategory category;
+        QString categoryName;
+        bool selectedForDownload;
     };
 
 
@@ -65,20 +88,24 @@ private:
 
     // Download page
     QLineEdit *_subjectIDDownload;
-    QLabel *_downloadID;
-    QLineEdit *_downloadPath;
-    QPushButton *_downloadQueryButton;
+    QComboBox *_downloadIDBox;
+    QComboBox *_downloadPathBox;
+    QListWidget *_scanItemsBox;
+    QVector<QListWidgetItem> _scanItems;
+    QPushButton *_querySubjectButton;
+    QPushButton *_generateScanListButton;
+    QPushButton *_readAvailableScanList;
     QPushButton *_downloadDataButton;
 
     // Anatomy page
+    QStringList _FastmapMSTemplateDirectories;
     QComboBox *_anatomyInputDirectoryBox; // "003 004"
     QLineEdit *_subjectIDFreeSurfer;
     QComboBox *_anatomyFileNameBox;       // "raw.nii or "brain.nii"
     QLabel *_freeSurferInputFile;      // "t1/004/raw.nii"
     QLabel *_anatomyInputFile;         // "t1/004/brain.nii"
-    QLabel *_anatomyTemplateDirectory; // "t1/004/brain.nii"
+    QComboBox *_anatomyTemplateDirectory; // multi-subject template directory
     QPushButton *_runFreeSurferButton;
-    QPushButton *_selectTemplateDirectoryButton;
     QPushButton *_alignAnatomyToTemplateButton;
 
     // fMRI page
@@ -92,7 +119,8 @@ private:
 
     // non-GUI variables
     QSettings _savedQSettings;        // needs organization & application name to work (see main.cpp)
-    QString _lastTemplateDirectory;
+    QVector<downloadScan> _scans;
+    QString _lastTemplateDirectory;   // this should be written locally, not read from qsettings
     QVector<FourDFile> _fMRIFiles;
     iPoint4D _dimEPITemplate;
 
@@ -105,6 +133,8 @@ private:
     void writeQSettings();
     QString getDimensions(QString fileName, iPoint4D &dim);
     void enableEPIActionButtons();
+    void outputConfigurationFile();
+    void getSubjectNameFromFreeDir();
 
 public:
     MainWindow(QWidget *parent = 0);
@@ -115,14 +145,20 @@ private slots:
         qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
         _centralWidget->setEnabled(true);
     }
+    inline void changedDownloadIDBox(int indexInBox)   {_downloadPathBox->setCurrentIndex(indexInBox);}
+    inline void changedDownloadPathBox(int indexInBox) {_downloadIDBox->setCurrentIndex(indexInBox);}
+    void finishedGeneratingScanList(int exitCode, QProcess::ExitStatus exitStatus);
+
+
     void queryDownloadPaths();
+    void generateScanList();
+    void readAvailableScanList();
     void downloadData();
     void aboutApp();
     void exitApp();
     void changedPage(int index);
     void alignAnatomyToTemplate();
     void finishedFMAnatomyAlignment(int exitCode, QProcess::ExitStatus exitStatus );
-    void selectTemplateDirectory();
 
     void resliceEPI();
     //    void motionCorrectEPI();
