@@ -121,7 +121,8 @@ void MainWindow::generateScanList()
     //    unpacksdcmdir -src $DataPath -targ . -unpackerr -scanonly scan-list.log
     auto *process = new QProcess;
     _outputBrowser->setWindowTitle("Query Progress");
-    _outputBrowser->show();
+    _browserAction->setCheckable(true);
+//    _outputBrowser->show();
     QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedGeneratingScanList(int, QProcess::ExitStatus)));
 
@@ -142,7 +143,8 @@ void MainWindow::finishedGeneratingScanList(int exitCode, QProcess::ExitStatus e
     if (checkFile.exists() && checkFile.isFile())
         readAvailableScanList();
     _centralWidget->setEnabled(true);
-    _outputBrowser->hide();
+    _browserAction->setCheckable(false);
+//    _outputBrowser->hide();
 }
 
 void MainWindow::readAvailableScanList()
@@ -348,7 +350,8 @@ void MainWindow::downloadData()
 
     auto *process = new QProcess;
     _outputBrowser->setWindowTitle("Download Progress");
-    _outputBrowser->show();
+    _browserAction->setCheckable(true);
+//    _outputBrowser->show();
     QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(enableGUI(int, QProcess::ExitStatus)));
 

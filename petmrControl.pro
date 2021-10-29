@@ -26,3 +26,8 @@ HEADERS  += petmrMain.h \
     ImageIO.h \
     io.h \
     nifti1.h
+
+DISTFILES +=
+
+RESOURCES += \
+    MyResources.qrc

@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>My-Icons/textOutput.png</file>
+        <file>My-Icons/fileCabinet.png</file>
+    </qresource>
+</RCC>

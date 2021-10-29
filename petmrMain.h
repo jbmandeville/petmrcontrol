@@ -12,6 +12,7 @@
 #include <QListWidget>
 #include <QGroupBox>
 #include <QTextBrowser>
+#include <QAction>
 #include <QDebug>
 
 #include "io.h"
@@ -88,6 +89,7 @@ private:
     QWidget *_anatomyPage;
     QWidget *_fmriPage;
     QStatusBar *_statusBar;
+    QAction *_browserAction;
 
     QTextBrowser *_outputBrowser;
 
@@ -156,12 +158,20 @@ private slots:
     {
         qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
         _centralWidget->setEnabled(true);
-        _outputBrowser->hide();
+        _browserAction->setCheckable(false);
+//        _outputBrowser->hide();
     }
     inline void outputToBrowser()
     {
         QProcess *process = qobject_cast<QProcess*>(sender());
         _outputBrowser->append(process->readAllStandardOutput());
+    }
+    inline void showBrowser()
+    {
+        if ( _browserAction->isChecked() )
+            _outputBrowser->show();
+        else
+            _outputBrowser->hide();
     }
 
     inline void changedDownloadIDBox(int indexInBox)   {_downloadPathBox->setCurrentIndex(indexInBox);}

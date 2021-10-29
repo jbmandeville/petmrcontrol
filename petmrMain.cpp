@@ -22,9 +22,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     readQSettings();
 
-    _outputBrowser = new QTextBrowser;
-    _outputBrowser->hide();
-
     _tabs = new QTabWidget();
     createDownloadPage();
     createAnatomyPage();
@@ -62,11 +59,19 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     connect(quitAction, &QAction::triggered, this, &MainWindow::exitApp);
 
     QSize iconSizeSmall(24,24);
+    const QIcon *showBrowser = new QIcon(":/My-Icons/textOutput.png");
     QToolBar *sideToolBar = addToolBar(tr("tool bar"));
-    auto *browserAction = new QAction("browser",this);
-    sideToolBar->addAction(browserAction);
+    _browserAction = new QAction(*showBrowser,"browser",this);
+    _browserAction->setCheckable(true);
+    _browserAction->setChecked(false);
+    sideToolBar->addAction(_browserAction);
     sideToolBar->setIconSize(iconSizeSmall);
     addToolBar(Qt::LeftToolBarArea, sideToolBar);
+    connect(_browserAction, &QAction::triggered, this, &MainWindow::showBrowser);
+
+    _outputBrowser = new QTextBrowser;
+    _browserAction->setCheckable(false);
+//    _outputBrowser->hide();
 
     QSize defaultWindowSize;
     QRect rec = QApplication::desktop()->screenGeometry();
