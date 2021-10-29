@@ -10,6 +10,8 @@
 #include <QComboBox>
 #include <QSettings>
 #include <QListWidget>
+#include <QGroupBox>
+#include <QTextBrowser>
 #include <QDebug>
 
 #include "io.h"
@@ -37,7 +39,7 @@ class MainWindow : public QMainWindow
 
 private:
 
-    QString _fastmapProcess     = "/Users/jbm/QtApps/build-FM-Desktop_Qt_5_12_2_clang_64bit-Release/FM.app/Contents/MacOS/FM";
+    QString _fastmapProcess     = "/homes/1/jbm/space1/dev/build-FM-Desktop_Qt_5_6_2_GCC_64bit-Release/FM";
     QString _findsessionProcess = "/usr/pubsw/bin/findsession";
     QString _scriptDirectory    = "/homes/1/jbm/script/analyze-fm/";
 
@@ -87,6 +89,8 @@ private:
     QWidget *_fmriPage;
     QStatusBar *_statusBar;
 
+    QTextBrowser *_outputBrowser;
+
     // Download page
     QLineEdit *_subjectIDDownload;
     QComboBox *_downloadIDBox;
@@ -97,6 +101,7 @@ private:
     QPushButton *_generateScanListButton;
     QPushButton *_readAvailableScanList;
     QPushButton *_downloadDataButton;
+    QGroupBox *_queryDownloadGroupBox;
 
     // Anatomy page
     QStringList _FastmapMSTemplateDirectories;
@@ -108,6 +113,9 @@ private:
     QComboBox *_anatomyTemplateDirectory; // multi-subject template directory
     QPushButton *_runFreeSurferButton;
     QPushButton *_alignAnatomyToTemplateButton;
+    QGroupBox *_freeSurferGroupBox;
+    QGroupBox *_anatomyInputBox;
+    QGroupBox *_anatomyAlignmentBox;
 
     // fMRI page
     QListWidget *_fMRIRunItemsBox;
@@ -136,6 +144,9 @@ private:
     void enableEPIActionButtons();
     void outputConfigurationFile();
     void getSubjectNameFromFreeDir();
+    void readAvailableScanList();
+    void readUnpackLog();
+    bool enableDownloadData();
 
 public:
     MainWindow(QWidget *parent = 0);
@@ -145,7 +156,14 @@ private slots:
     {
         qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
         _centralWidget->setEnabled(true);
+        _outputBrowser->hide();
     }
+    inline void outputToBrowser()
+    {
+        QProcess *process = qobject_cast<QProcess*>(sender());
+        _outputBrowser->append(process->readAllStandardOutput());
+    }
+
     inline void changedDownloadIDBox(int indexInBox)   {_downloadPathBox->setCurrentIndex(indexInBox);}
     inline void changedDownloadPathBox(int indexInBox) {_downloadIDBox->setCurrentIndex(indexInBox);}
     void finishedGeneratingScanList(int exitCode, QProcess::ExitStatus exitStatus);
@@ -153,7 +171,6 @@ private slots:
 
     void queryDownloadPaths();
     void generateScanList();
-    void readAvailableScanList();
     void downloadData();
     void aboutApp();
     void exitApp();
@@ -168,6 +185,8 @@ private slots:
     void finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitStatus );
     void finishedFMAlignEPI(int exitCode, QProcess::ExitStatus exitStatus );
     void changedfMRIRunCheckBox(QListWidgetItem* item);
+    void changedfMRIRunSelection();
+    void changedDownloadScanCheckBox(QListWidgetItem *item);
 
 };
 

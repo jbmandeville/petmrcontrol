@@ -29,8 +29,8 @@ void MainWindow::createDownloadPage()
     queryLayout->addWidget(queryDatabaseLabel,3,0);
     queryLayout->addWidget(_querySubjectButton,3,1);
 
-    auto *queryBox = new QGroupBox("Query database and define download path");
-    queryBox->setLayout(queryLayout);
+    _queryDownloadGroupBox = new QGroupBox("Query database and define download path");
+    _queryDownloadGroupBox->setLayout(queryLayout);
 
     _generateScanListButton = new QPushButton("Generate scan list",_downLoadPage);
     connect(_generateScanListButton, SIGNAL(pressed()), this, SLOT(generateScanList()));
@@ -42,11 +42,6 @@ void MainWindow::createDownloadPage()
     connect(_scanItemsBox, SIGNAL(itemClicked(QListWidgetItem*)),
             this, SLOT(changedDownloadScanCheckBox(QListWidgetItem*)));
 
-    QString runLog = "run-list.log";
-    QFileInfo checkFile(runLog);
-    if (checkFile.exists() && checkFile.isFile())
-        readAvailableScanList();
-
     auto *runsLayout = new QVBoxLayout();
     runsLayout->addWidget(_generateScanListButton);
     runsLayout->addWidget(_scanItemsBox);
@@ -55,7 +50,6 @@ void MainWindow::createDownloadPage()
 
     _downloadDataButton = new QPushButton("Download",_downLoadPage);
     connect(_downloadDataButton, SIGNAL(pressed()), this, SLOT(downloadData()));
-    _downloadDataButton->setEnabled(false);
 
     auto *downloadLayout = new QVBoxLayout();
     downloadLayout->addWidget(_downloadDataButton);
@@ -63,10 +57,29 @@ void MainWindow::createDownloadPage()
     downloadBox->setLayout(downloadLayout);
 
     auto *pageLayout = new QVBoxLayout();
-    pageLayout->addWidget(queryBox);
+    pageLayout->addWidget(_queryDownloadGroupBox);
     pageLayout->addWidget(runsBox);
     pageLayout->addWidget(downloadBox);
     _downLoadPage->setLayout(pageLayout);
+
+    QString unpackLog = "unpack.log";
+    QFileInfo checkUnpackLog(unpackLog);
+    if (checkUnpackLog.exists() && checkUnpackLog.isFile())
+        readUnpackLog();
+
+    QString runLog = "scan-list.log";
+    QFileInfo checkRunLog(runLog);
+    if (checkRunLog.exists() && checkRunLog.isFile())
+        readAvailableScanList();
+    _downloadDataButton->setEnabled(enableDownloadData());
+}
+
+bool MainWindow::enableDownloadData()
+{
+    bool enable = false;
+    for (int jList=0; jList<_scanItems.count(); jList++)
+        enable |= _scanItems[jList].checkState();
+    return enable;
 }
 
 void MainWindow::queryDownloadPaths()
@@ -100,42 +113,42 @@ void MainWindow::queryDownloadPaths()
     _downloadPathBox->setCurrentIndex(_downloadPathBox->count()-1);
 
     _generateScanListButton->setEnabled(true);
-    _downloadDataButton->setEnabled(true);
+    _downloadDataButton->setEnabled(enableDownloadData());
 }
 
 void MainWindow::generateScanList()
 { // given a subject and datapath, this will download everything using "unpacksdcmdir"
-    //    unpacksdcmdir -src $DataPath -targ . -unpackerr -scanonly run-list.log
+    //    unpacksdcmdir -src $DataPath -targ . -unpackerr -scanonly scan-list.log
     auto *process = new QProcess;
-    auto *view = new QTextBrowser;
-    QObject::connect(process, &QProcess::readyReadStandardOutput, [process,view]()
-    {
-        auto output=process->readAllStandardOutput();
-        view->append(output);
-    });
-    _centralWidget->setEnabled(false);
+    _outputBrowser->setWindowTitle("Query Progress");
+    _outputBrowser->show();
+    QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedGeneratingScanList(int, QProcess::ExitStatus)));
+
+    process->setProcessChannelMode(QProcess::MergedChannels);
 
     QStringList arguments;
     QString exe = _scriptDirectory + "generateScanList.csh";
     arguments.append(_downloadPathBox->currentText());
     qInfo() <<  exe << arguments;
     process->start(exe,arguments);
+    _centralWidget->setEnabled(false);
 }
 
 void MainWindow::finishedGeneratingScanList(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    _centralWidget->setEnabled(true);
-    QString runLog = "run-list.log";
+    QString runLog = "scan-list.log";
     QFileInfo checkFile(runLog);
     if (checkFile.exists() && checkFile.isFile())
         readAvailableScanList();
+    _centralWidget->setEnabled(true);
+    _outputBrowser->hide();
 }
 
 void MainWindow::readAvailableScanList()
 {
     // Read the time model file
-    QFile infile("run-list.log");
+    QFile infile("scan-list.log");
     if (!infile.open(QIODevice::ReadOnly | QIODevice::Text))
         return;
     QTextStream in_stream(&infile);
@@ -147,7 +160,9 @@ void MainWindow::readAvailableScanList()
         iLine++;
         downloadScan scan;
         QString line = in_stream.readLine();
-        QStringList stringList = line.split(QRegExp("[ ]"), QString::SkipEmptyParts);
+        QRegExp rx("[,\\s]");// match a comma or a space
+        QStringList stringList = line.split(rx, QString::SkipEmptyParts);
+//        QStringList stringList = line.split(QRegularExpression("\\s+"));
         int scanNumber = stringList.at(0).toInt();
         if ( scanNumber < 10 )
             scan.scanNumber = "00" + QString("%1").arg(scanNumber);
@@ -208,6 +223,8 @@ void MainWindow::readAvailableScanList()
                 scan.categoryName = "unknown";
             }
         }
+
+        FUNC_INFO << "scan" << scan.sequenceName << "dim" << scan.dim.x << scan.dim.y << scan.dim.z << scan.dim.t;
         if ( scan.dim.x > 0 && scan.dim.y > 0 && scan.dim.z > 0 && scan.dim.t > 0 )
         {
             QString dirname = scan.categoryName + "/" + scan.scanNumber;
@@ -240,9 +257,59 @@ void MainWindow::readAvailableScanList()
     }
 }
 
+void MainWindow::changedDownloadScanCheckBox(QListWidgetItem *item)
+{
+    FUNC_ENTER;
+    int iSelected=-1;
+    for ( int jItem=0; jItem<_scanItems.size(); jItem++)
+    {
+        if ( item == &_scanItems.at(jItem) )
+            iSelected = jItem;
+    }
+    _scans[iSelected].selectedForDownload = _scanItems[iSelected].checkState();
+}
+
+void MainWindow::readUnpackLog()
+{
+    FUNC_ENTER;
+    // Read the time model file
+    QFile infile("unpack.log");
+    if (!infile.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+    QTextStream in_stream(&infile);
+
+    int iLine=0;
+    while (!in_stream.atEnd())
+    {
+        iLine++;
+        downloadScan scan;
+        QString line = in_stream.readLine();
+        QStringList stringList = line.split(QRegularExpression("\\s+"));
+        FUNC_INFO << stringList << stringList;
+        int iPatient=stringList.indexOf("PatientName");
+        if ( iPatient >= 0 && iPatient < stringList.size()-1 )
+        {
+            FUNC_INFO << "add subject" << stringList.at(iPatient+1);
+            _downloadIDBox->addItem(stringList.at(iPatient+1));
+            _downloadIDBox->setEnabled(false);  // lock the ID box
+            _querySubjectButton->setEnabled(false);
+        }
+        int iSrc=stringList.indexOf("-src");
+        FUNC_INFO << stringList << "iSrc" << iSrc;
+        if ( iSrc >= 0 && iSrc < stringList.size()-1 )
+        {
+            FUNC_INFO << "add path" << iSrc+1 << "size" << stringList.size();
+            _downloadPathBox->addItem(stringList.at(iSrc+1));
+            _downloadPathBox->setEnabled(false);
+            _querySubjectButton->setEnabled(false);
+            _generateScanListButton->setEnabled(true);
+        }
+    }
+}
+
 void MainWindow::outputConfigurationFile()
 {
-    QFile file("config-download.dat");
+    QFile file("download-list.dat");
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         return;
     QTextStream out(&file);
@@ -276,17 +343,13 @@ void MainWindow::outputConfigurationFile()
 
 void MainWindow::downloadData()
 { // given a subject and datapath, this will download everything using "unpacksdcmdir"
-    //    unpacksdcmdir -src $DataPath -targ . -unpackerr -scanonly run-list.log
+    //    unpacksdcmdir -src $DataPath -targ . -unpackerr -scanonly scan-list.log
     outputConfigurationFile();
 
     auto *process = new QProcess;
-    auto *view = new QTextBrowser;
-    QObject::connect(process, &QProcess::readyReadStandardOutput, [process,view]()
-    {
-        auto output=process->readAllStandardOutput();
-        view->append(output);
-    });
-    _centralWidget->setEnabled(false);
+    _outputBrowser->setWindowTitle("Download Progress");
+    _outputBrowser->show();
+    QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(enableGUI(int, QProcess::ExitStatus)));
 
     QStringList arguments;
@@ -294,4 +357,5 @@ void MainWindow::downloadData()
     arguments.append(_downloadPathBox->currentText());
     qInfo() <<  exe << arguments;
     process->start(exe,arguments);
+    _centralWidget->setEnabled(false);
 }

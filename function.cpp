@@ -9,8 +9,10 @@ void MainWindow::createfMRIPage()
     _fMRIRunItemsBox = new QListWidget();
     _fMRIRunItemsBox->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::MinimumExpanding);
     _fMRIRunItemsBox->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
-    connect(_fMRIRunItemsBox, SIGNAL(itemClicked(QListWidgetItem*)),
+    connect(_fMRIRunItemsBox, SIGNAL(itemChanged(QListWidgetItem*)),
             this, SLOT(changedfMRIRunCheckBox(QListWidgetItem*)));
+    connect(_fMRIRunItemsBox, SIGNAL(itemSelectionChanged()),
+            this, SLOT(changedfMRIRunSelection()));
 
     auto *runsLayout = new QVBoxLayout();
     runsLayout->addWidget(_fMRIRunItemsBox);
@@ -56,15 +58,15 @@ void MainWindow::createfMRIPage()
     _fmriPage->setLayout(pageLayout);
 }
 
-void MainWindow::changedfMRIRunCheckBox(QListWidgetItem* item)
+void MainWindow::changedfMRIRunCheckBox(QListWidgetItem *item)
 {
-    FUNC_ENTER;
     int iSelected=-1;
     for ( int jItem=0; jItem<_fMRIRunItems.size(); jItem++)
     {
         if ( item == &_fMRIRunItems.at(jItem) )
             iSelected = jItem;
     }
+    FUNC_INFO << iSelected;
     if ( !_fMRIRunItems[iSelected].checkState() &&
          iSelected == _fMRITemplateDirectoryBox->currentIndex() )
     { // unselected the template directory, so pick the first selection
@@ -83,6 +85,10 @@ void MainWindow::changedfMRIRunCheckBox(QListWidgetItem* item)
         changefMRITemplateDirectory(iSelected);
     }
     enableEPIActionButtons();
+}
+void MainWindow::changedfMRIRunSelection()
+{
+    FUNC_ENTER << "**";
 }
 
 void MainWindow::changefMRITemplateDirectory(int indexInBox)
@@ -155,7 +161,7 @@ void MainWindow::openedfMRIPage()
         QString text = getDimensions(file.name, file.dim);
         _fMRIFiles.append(file);
         _fMRIRunItems[jList].setText(folderList.at(jList) + " :    " + text);
-        _fMRIRunItems[jList].setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
+        _fMRIRunItems[jList].setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable | Qt::ItemIsSelectable);
         _fMRIRunItems[jList].setCheckState(Qt::Checked);
         _fMRIRunItems[jList].setHidden(false);
         _fMRIRunItemsBox->addItem(&_fMRIRunItems[jList]);
@@ -207,12 +213,6 @@ void MainWindow::resliceEPI()
 {
     FUNC_ENTER;
     auto *process = new QProcess;
-    auto *view = new QTextBrowser;
-    QObject::connect(process, &QProcess::readyReadStandardOutput, [process,view]()
-    {
-        auto output=process->readAllStandardOutput();
-        view->append(output);
-    });
     _centralWidget->setEnabled(false);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
             this, SLOT(finishedFMResliceEPI(int, QProcess::ExitStatus)));
@@ -258,12 +258,6 @@ void MainWindow::alignEPI()
 {
     FUNC_ENTER;
     auto *process = new QProcess;
-    auto *view = new QTextBrowser;
-    QObject::connect(process, &QProcess::readyReadStandardOutput, [process,view]()
-    {
-        auto output=process->readAllStandardOutput();
-        view->append(output);
-    });
     _centralWidget->setEnabled(false);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
             this, SLOT(finishedFMAlignEPI(int, QProcess::ExitStatus)));

@@ -14,8 +14,8 @@ void MainWindow::createAnatomyPage()
     _anatomyInputDirectoryBox = new QComboBox();
     inputLayout->addWidget(anatDirLabel,0,0);
     inputLayout->addWidget(_anatomyInputDirectoryBox,0,1);
-    auto *inputBox = new QGroupBox("Input directory for anatomy");
-    inputBox->setLayout(inputLayout);
+    _anatomyInputBox = new QGroupBox("Input directory for anatomy");
+    _anatomyInputBox->setLayout(inputLayout);
 
     ////////////////////////////////////////////////
     // freeSurfer
@@ -37,17 +37,13 @@ void MainWindow::createAnatomyPage()
     freeSurferLayout->addWidget(_runFreeSurferButton);
     freeSurferLayout->setSpacing(0);
 
-    auto *freeBox = new QGroupBox("Run FreeSurfer to delineate anatomy (takes HOURS)");
-    freeBox->setLayout(freeSurferLayout);
+    _freeSurferGroupBox = new QGroupBox("Run FreeSurfer to delineate anatomy (takes HOURS)");
+    _freeSurferGroupBox->setLayout(freeSurferLayout);
 
     QString freeDir = "free";
     QFileInfo checkDir(freeDir);
     if (checkDir.exists() && checkDir.isDir())
-    {
-        // get subject name
-        getSubjectNameFromFreeDir();
-        freeBox->setEnabled(false);
-    }
+        getSubjectNameFromFreeDir();    // get subject name
 
     ////////////////////////////////////////////////
     // anatomy registration
@@ -73,23 +69,23 @@ void MainWindow::createAnatomyPage()
     anatomyFileLayout->addWidget(_anatomyTemplateDirectory,1,1);
     anatomyFileLayout->setSpacing(0);
 
-    auto *anatomyLayout = new QVBoxLayout();
+    auto *anatomyAlignmentLayout = new QVBoxLayout();
     _alignAnatomyToTemplateButton  = new QPushButton("Align to template",_anatomyPage);
     connect(_alignAnatomyToTemplateButton, SIGNAL(pressed()), this, SLOT(alignAnatomyToTemplate()));
 
-    anatomyLayout->addLayout(anatomyFileLayout);
-    anatomyLayout->addWidget(_alignAnatomyToTemplateButton);
+    anatomyAlignmentLayout->addLayout(anatomyFileLayout);
+    anatomyAlignmentLayout->addWidget(_alignAnatomyToTemplateButton);
 
-    auto *anatomyBox = new QGroupBox("Use fastmap to align anatomy to a multi-subject template");
-    anatomyBox->setLayout(anatomyLayout);
+    _anatomyAlignmentBox = new QGroupBox("Use fastmap to align anatomy to a multi-subject template");
+    _anatomyAlignmentBox->setLayout(anatomyAlignmentLayout);
 
     ////////////////////////////////////////////////
     // full page layout
     ////////////////////////////////////////////////
     auto *pageLayout = new QVBoxLayout();
-    pageLayout->addWidget(inputBox);
-    pageLayout->addWidget(freeBox);
-    pageLayout->addWidget(anatomyBox);
+    pageLayout->addWidget(_anatomyInputBox);
+    pageLayout->addWidget(_freeSurferGroupBox);
+    pageLayout->addWidget(_anatomyAlignmentBox);
     pageLayout->setSpacing(0);
     _anatomyPage->setLayout(pageLayout);
 }
@@ -101,7 +97,13 @@ void MainWindow::getSubjectNameFromFreeDir()
     QStringList const folderList = freeDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks);
     FUNC_INFO << folderList;
     if ( folderList.count() == 1 )
+    {
+        _subjectIDDownload->setText(folderList.at(0));
         _subjectIDFreeSurfer->setText(folderList.at(0));
+        _freeSurferGroupBox->setEnabled(false);
+        _queryDownloadGroupBox->setEnabled(false);
+        setWindowTitle(QString("petmrcontrol: %1").arg(_subjectIDFreeSurfer->text()));
+    }
 }
 
 void MainWindow::openedAnatomyPage()
@@ -161,7 +163,11 @@ void MainWindow::openedAnatomyPage()
             if ( fileList.at(jList) == "raw.nii")   indexRaw   = jList;
         }
         if ( indexBrain >= 0 )
+        {
             _anatomyFileNameBox->setCurrentIndex(indexBrain);
+            _anatomyInputBox->setEnabled(false);
+            _anatomyAlignmentBox->setEnabled(false);
+        }
         else if ( indexRaw >= 0 )
             _anatomyFileNameBox->setCurrentIndex(indexRaw);
         else
@@ -186,12 +192,6 @@ void MainWindow::alignAnatomyToTemplate()
 {
     FUNC_ENTER;
     auto *process = new QProcess;
-    auto *view = new QTextBrowser;
-    QObject::connect(process, &QProcess::readyReadStandardOutput, [process,view]()
-    {
-        auto output=process->readAllStandardOutput();
-        view->append(output);
-    });
     _centralWidget->setEnabled(false);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMAnatomyAlignment(int, QProcess::ExitStatus)));
 

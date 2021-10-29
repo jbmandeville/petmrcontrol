@@ -22,6 +22,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     readQSettings();
 
+    _outputBrowser = new QTextBrowser;
+    _outputBrowser->hide();
+
     _tabs = new QTabWidget();
     createDownloadPage();
     createAnatomyPage();
@@ -57,6 +60,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     // short-cuts and tooltips
     quitAction->setShortcut(Qt::ControlModifier + Qt::Key_Q);
     connect(quitAction, &QAction::triggered, this, &MainWindow::exitApp);
+
+    QSize iconSizeSmall(24,24);
+    QToolBar *sideToolBar = addToolBar(tr("tool bar"));
+    auto *browserAction = new QAction("browser",this);
+    sideToolBar->addAction(browserAction);
+    sideToolBar->setIconSize(iconSizeSmall);
+    addToolBar(Qt::LeftToolBarArea, sideToolBar);
 
     QSize defaultWindowSize;
     QRect rec = QApplication::desktop()->screenGeometry();
