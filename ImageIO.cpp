@@ -2315,9 +2315,10 @@ int ImageIO::writeNiftiHeader(QString fileName)
         nifti_header.datatype = NIFTI_TYPE_FLOAT32;
         nifti_header.bitpix   = 32;
     }
-    nifti_header.slice_start = nifti_header.slice_end = 0;
-    nifti_header.slice_code  = 0;
-    nifti_header.slice_duration = 0.;
+    nifti_header.slice_start = 0;
+    nifti_header.slice_end = hdr.dim.z-1;
+    nifti_header.slice_code  = hdr.slice_code;
+    nifti_header.slice_duration = hdr.slice_duration;
 
     nifti_header.pixdim[0]   = qfac;    // specifies parity of coordinate system
     nifti_header.pixdim[1]   = hdr.resolution.x;
@@ -2936,6 +2937,8 @@ int ImageIO::readNiftiHeader( bool verbose )
         qInfo() << "Error: Value for t dimension not found in header file " << _imageHeaderName;
         return(1);
     }
+    _data.hdr.slice_code = nifti_header.slice_code;
+    _data.hdr.slice_duration = nifti_header.slice_duration;
 
     // Define the tranformation between voxel coordinates and space.
     if ( nifti_header.qform_code == 0 ) // "old" Analyze 7.5 method

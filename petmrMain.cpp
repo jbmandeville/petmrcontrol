@@ -26,9 +26,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     createDownloadPage();
     createAnatomyPage();
     createfMRIPage();
+    createPETPage();
     _tabs->addTab(_downLoadPage,  tr("Download"));
     _tabs->addTab(_anatomyPage, tr("Anatomy"));
     _tabs->addTab(_fmriPage, tr("fMRI"));
+    _tabs->addTab(_petPage, tr("PET"));
     _tabs->setTabToolTip(0,"Query database and download data");
     _tabs->setTabToolTip(1,"Align anatomy; potentially run freeSurfer;\nClick tab to refresh state");
     connect(_tabs, SIGNAL(tabBarClicked(int)), this, SLOT(changedPage(int)));
@@ -67,17 +69,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     sideToolBar->addAction(_browserAction);
     sideToolBar->setIconSize(iconSizeSmall);
     addToolBar(Qt::LeftToolBarArea, sideToolBar);
-    connect(_browserAction, &QAction::triggered, this, &MainWindow::showBrowser);
+    connect(_browserAction, SIGNAL(toggled(bool)), this, SLOT(showBrowser(bool)));
 
     _outputBrowser = new QTextBrowser;
-    _browserAction->setCheckable(false);
-//    _outputBrowser->hide();
+    _browserAction->setChecked(false);
 
     QSize defaultWindowSize;
     QRect rec = QApplication::desktop()->screenGeometry();
     defaultWindowSize.setWidth(rec.width()/4);
     defaultWindowSize.setHeight(rec.height()/4);
     resize(defaultWindowSize);
+    _outputBrowser->resize(defaultWindowSize);
 }
 
 void MainWindow::changedPage(int index)

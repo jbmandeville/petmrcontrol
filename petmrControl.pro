@@ -20,7 +20,8 @@ SOURCES += main.cpp\
         download.cpp \
         function.cpp \
         petmrMain.cpp \
-        utilio.cpp
+        utilio.cpp \
+    pet.cpp
 
 HEADERS  += petmrMain.h \
     ImageIO.h \

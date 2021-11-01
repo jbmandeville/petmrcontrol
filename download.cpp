@@ -1,4 +1,5 @@
 #include <QtWidgets>
+#include <QFile>
 #include "petmrMain.h"
 
 void MainWindow::createDownloadPage()
@@ -121,8 +122,7 @@ void MainWindow::generateScanList()
     //    unpacksdcmdir -src $DataPath -targ . -unpackerr -scanonly scan-list.log
     auto *process = new QProcess;
     _outputBrowser->setWindowTitle("Query Progress");
-    _browserAction->setCheckable(true);
-//    _outputBrowser->show();
+    showBrowser(true);
     QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedGeneratingScanList(int, QProcess::ExitStatus)));
 
@@ -143,8 +143,7 @@ void MainWindow::finishedGeneratingScanList(int exitCode, QProcess::ExitStatus e
     if (checkFile.exists() && checkFile.isFile())
         readAvailableScanList();
     _centralWidget->setEnabled(true);
-    _browserAction->setCheckable(false);
-//    _outputBrowser->hide();
+    showBrowser(false);
 }
 
 void MainWindow::readAvailableScanList()
@@ -166,12 +165,13 @@ void MainWindow::readAvailableScanList()
         QStringList stringList = line.split(rx, QString::SkipEmptyParts);
 //        QStringList stringList = line.split(QRegularExpression("\\s+"));
         int scanNumber = stringList.at(0).toInt();
+        scan.scanNumber = QString("%1").arg(scanNumber);
         if ( scanNumber < 10 )
-            scan.scanNumber = "00" + QString("%1").arg(scanNumber);
+            scan.scanNumberNew = "00" + QString("%1").arg(scanNumber);
         else if ( scanNumber < 100 )
-            scan.scanNumber = "0" + QString("%1").arg(scanNumber);
+            scan.scanNumberNew = "0" + QString("%1").arg(scanNumber);
         else
-            scan.scanNumber = QString("%1").arg(scanNumber);
+            scan.scanNumberNew = QString("%1").arg(scanNumber);
         scan.sequenceName = stringList.at(1);
         scan.dim.x = stringList.at(3).toInt();
         scan.dim.y = stringList.at(4).toInt();
@@ -229,7 +229,7 @@ void MainWindow::readAvailableScanList()
         FUNC_INFO << "scan" << scan.sequenceName << "dim" << scan.dim.x << scan.dim.y << scan.dim.z << scan.dim.t;
         if ( scan.dim.x > 0 && scan.dim.y > 0 && scan.dim.z > 0 && scan.dim.t > 0 )
         {
-            QString dirname = scan.categoryName + "/" + scan.scanNumber;
+            QString dirname = scan.categoryName + "/" + scan.scanNumberNew;
             FUNC_INFO << "check dirname" << dirname;
             QFileInfo checkDir(dirname);
             if (checkDir.exists() && checkDir.isDir())
@@ -246,8 +246,9 @@ void MainWindow::readAvailableScanList()
     for (int jList=0; jList<_scans.size(); jList++)
     {
         downloadScan scan = _scans.at(jList);
-        QString text = QString("%1 %2 (%3) %4x%5x%6x%7").arg(scan.scanNumber).arg(scan.sequenceName).arg(scan.categoryName)
-                .arg(scan.dim.x).arg(scan.dim.y).arg(scan.dim.z).arg(scan.dim.t);
+        QString volumes = "volumes";  if ( scan.dim.t == 1 ) volumes = "volume";
+        QString text = QString("%1 (%2) %3 %4x%5x%6, %7 %8").arg(scan.scanNumberNew).arg(scan.categoryName).arg(scan.sequenceName)
+                .arg(scan.dim.x).arg(scan.dim.y).arg(scan.dim.z).arg(scan.dim.t).arg(volumes);
         _scanItems[jList].setText(text);
         _scanItems[jList].setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
         if ( scan.selectedForDownload )
@@ -309,7 +310,7 @@ void MainWindow::readUnpackLog()
     }
 }
 
-void MainWindow::outputConfigurationFile()
+void MainWindow::outputDownloadList()
 {
     QFile file("download-list.dat");
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
@@ -322,7 +323,7 @@ void MainWindow::outputConfigurationFile()
         if ( scan.selectedForDownload )
         {
             if ( scan.category == category_scout )
-                out << scan.scanNumber << " scout dicom raw.nii \n";
+                out << " scout dicom raw.nii \n";
             else if ( scan.category == category_T1 )
                 out << scan.scanNumber << " t1 dicom raw.nii \n";
             else if ( scan.category == category_EPI )
@@ -338,7 +339,7 @@ void MainWindow::outputConfigurationFile()
             else if ( scan.category == category_UNKNOWN )
                 out << scan.scanNumber << " unknown dicom raw.nii \n";
         }
-        FUNC_INFO << "scan " << jList << "number" << _scans.at(jList).scanNumber << "name" << _scans.at(jList).sequenceName;
+        FUNC_INFO << "scan " << jList << "number" << _scans.at(jList).scanNumberNew << "name" << _scans.at(jList).sequenceName;
     }
     file.close();
 }
@@ -346,14 +347,13 @@ void MainWindow::outputConfigurationFile()
 void MainWindow::downloadData()
 { // given a subject and datapath, this will download everything using "unpacksdcmdir"
     //    unpacksdcmdir -src $DataPath -targ . -unpackerr -scanonly scan-list.log
-    outputConfigurationFile();
+    outputDownloadList();
 
     auto *process = new QProcess;
     _outputBrowser->setWindowTitle("Download Progress");
-    _browserAction->setCheckable(true);
-//    _outputBrowser->show();
+    showBrowser(true);
     QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
-    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(enableGUI(int, QProcess::ExitStatus)));
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedDownloadData(int, QProcess::ExitStatus)));
 
     QStringList arguments;
     QString exe = _scriptDirectory + "unpackData.csh";
@@ -361,4 +361,74 @@ void MainWindow::downloadData()
     qInfo() <<  exe << arguments;
     process->start(exe,arguments);
     _centralWidget->setEnabled(false);
+}
+
+void MainWindow::finishedDownloadData(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
+
+    for (int jList=0; jList<_scans.size(); jList++)
+        reformatAcquisitionTimes(_scans.at(jList));
+
+    _centralWidget->setEnabled(true);
+    showBrowser(false);
+}
+
+void MainWindow::finishedDownloadDataNew()
+{
+
+    for (int jList=0; jList<_scans.size(); jList++)
+        reformatAcquisitionTimes(_scans.at(jList));
+}
+
+void MainWindow::reformatAcquisitionTimes(downloadScan scan)
+{
+    FUNC_ENTER;
+    QString inputFileName  = scan.categoryName + "/" + scan.scanNumberNew + "/time-tags.tmp";
+    QString outputFileName = scan.categoryName + "/" + scan.scanNumberNew + "/time-tags.txt";
+
+    QFile infile(inputFileName);
+    if (!infile.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+    QTextStream in_stream(&infile);
+
+    QFile outFile(outputFileName);
+    if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+    QTextStream out(&outFile);
+    out << "Volume secondsTotal hours minutes seconds\n";
+
+    int nSlices = scan.dim.z;
+    if ( scan.category == category_EPI )
+        nSlices = 1;  // mosaic
+
+    int iTime=0;  int nEntries=0;
+    while (!in_stream.atEnd())
+    {
+        QString line = in_stream.readLine();
+        FUNC_INFO << "line" << line;
+        QString newLine = line.remove("["); newLine.remove("]");
+        FUNC_INFO << "newLine" << newLine;
+        QRegExp rx("[\\s]");// match a comma or a space
+        QStringList stringList = newLine.split(rx, QString::SkipEmptyParts);
+        if ( stringList.count() > 2 )
+        {
+            FUNC_INFO << stringList;
+            FUNC_INFO << stringList.at(2);
+            double value   = stringList.at(2).toDouble();
+            short hours    = static_cast<short>(value/10000.);
+            short minutes  = static_cast<short>((value - 10000*hours)/100.);
+            double seconds = static_cast<short>(value - 10000*hours - 100*minutes);
+            double secondsTotal = 3600. * hours + 60. * minutes + seconds;
+            FUNC_INFO << "time" << hours << minutes << seconds;
+            int iSlice = nEntries % nSlices;
+            if ( iSlice == 0 )
+            {
+                out << iTime+1 << " " << secondsTotal << " " << hours << " " << minutes << " " << seconds << "\n";
+                iTime++;
+            }
+            nEntries++;
+        }
+    }
+    infile.close();  outFile.close();
 }

@@ -18,17 +18,21 @@ void MainWindow::createfMRIPage()
     runsLayout->addWidget(_fMRIRunItemsBox);
 
     auto *templateLabel = new QLabel("template directory");
-    auto *fileLabel     = new QLabel("file name");
+    auto *fileLabel     = new QLabel("file name(s)");
+    auto *rangeLabel    = new QLabel("averaging range for template");
     _fMRITemplateDirectoryBox = new QComboBox();
     _fMRIFileNameBox          = new QComboBox();
-    connect(_fMRITemplateDirectoryBox, SIGNAL(activated(int)),
-            this, SLOT(changefMRITemplateDirectory(int)));
+    _fMRIMCRange              = new QLineEdit("1-10");
+    connect(_fMRITemplateDirectoryBox, SIGNAL(activated(int)),this, SLOT(changefMRITemplateDirectory(int)));
+    connect(_fMRIFileNameBox,          SIGNAL(activated(int)),this, SLOT(changedfMRIFileName(int)));
 
     auto *fileLayout = new QGridLayout();
     fileLayout->addWidget(templateLabel,0,0);
     fileLayout->addWidget(_fMRITemplateDirectoryBox,0,1);
-    fileLayout->addWidget(fileLabel,1,0);
-    fileLayout->addWidget(_fMRIFileNameBox,1,1);
+    fileLayout->addWidget(rangeLabel,1,0);
+    fileLayout->addWidget(_fMRIMCRange,1,1);
+    fileLayout->addWidget(fileLabel,2,0);
+    fileLayout->addWidget(_fMRIFileNameBox,2,1);
 
     auto *setupLayout = new QVBoxLayout();
     setupLayout->addLayout(runsLayout);
@@ -41,7 +45,7 @@ void MainWindow::createfMRIPage()
     _motionCorrectEPIButton = new QPushButton("motion-correct runs",_anatomyPage);
     _alignEPIButton         = new QPushButton("Align to template",_anatomyPage);
     connect(_resliceEPIButton,       SIGNAL(pressed()), this, SLOT(resliceEPI()));
-//    connect(_motionCorrectEPIButton, SIGNAL(pressed()), this, SLOT(motionCorrectEPI()));
+    connect(_motionCorrectEPIButton, SIGNAL(pressed()), this, SLOT(motionCorrectEPI()));
     connect(_alignEPIButton,         SIGNAL(pressed()), this, SLOT(alignEPI()));
 
     auto *actionLayout = new QVBoxLayout();
@@ -115,7 +119,6 @@ void MainWindow::openedfMRIPage()
         _fMRIRunItems.clear();
         return;
     }
-
     FUNC_INFO << 1;
     QStringList const folderList = fMRITopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 
@@ -126,6 +129,17 @@ void MainWindow::openedfMRIPage()
 
     // Given the fMRI template directory, pick a file type
     // For the first selection, show all NIFTI files
+    updateFileNameBox();
+    _fMRITemplateDirectoryBox->setCurrentIndex(0);
+    changefMRITemplateDirectory(0);
+
+    enableEPIActionButtons();
+
+    FUNC_EXIT;
+}
+
+void MainWindow::updateFileNameBox()
+{
     QString path = "./epi/" + _fMRITemplateDirectoryBox->currentText();
     QDir templateDir(path);
     FUNC_INFO << "path" << path;
@@ -133,21 +147,39 @@ void MainWindow::openedfMRIPage()
     QStringList fileList = templateDir.entryList();
     FUNC_INFO << fileList;
     _fMRIFileNameBox->clear();
-    int indexRaw=-1;  int indexMC=-1;
+    int indexRaw=-1;  int indexReslice=-1;  int indexMC=-1;
     for (int jList=0; jList<fileList.size(); jList++)
     {
         _fMRIFileNameBox->addItem(fileList.at(jList));
-        if ( fileList.at(jList) == "mc.nii")  indexMC = jList;
-        if ( fileList.at(jList) == "raw.nii") indexRaw   = jList;
+        if ( fileList.at(jList) == "mc.nii")     indexMC = jList;
+        if ( fileList.at(jList) == "reslice.nii") indexReslice   = jList;
+        if ( fileList.at(jList) == "raw.nii")     indexRaw   = jList;
     }
     if ( indexMC >= 0 )
         _fMRIFileNameBox->setCurrentIndex(indexMC);
+    else if ( indexReslice >= 0 )
+        _fMRIFileNameBox->setCurrentIndex(indexReslice);
     else if ( indexRaw >= 0 )
         _fMRIFileNameBox->setCurrentIndex(indexRaw);
     else
         _fMRIFileNameBox->setCurrentIndex(0);
 
     FUNC_INFO << 2;
+    changedfMRIFileName(_fMRIFileNameBox->currentIndex());
+}
+
+void MainWindow::changedfMRIFileName(int indexInBox)
+{
+    QDir const fMRITopDir("./epi");
+    if (!fMRITopDir.exists())
+    {
+        _fMRIRunItems.clear();
+        return;
+    }
+    FUNC_INFO << 1;
+    QStringList const folderList = fMRITopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+    QString path = fMRITopDir.dirName() + _fMRITemplateDirectoryBox->currentText();
     QString fileName = path + "/" + _fMRIFileNameBox->currentText();
     getDimensions(fileName, _dimEPITemplate);
 
@@ -167,12 +199,8 @@ void MainWindow::openedfMRIPage()
         _fMRIRunItemsBox->addItem(&_fMRIRunItems[jList]);
     }
     FUNC_INFO << "_fMRIFiles size" << _fMRIFiles.size();
-    _fMRITemplateDirectoryBox->setCurrentIndex(0);
-    changefMRITemplateDirectory(0);
 
     enableEPIActionButtons();
-
-    FUNC_EXIT;
 }
 
 void MainWindow::enableEPIActionButtons()
@@ -182,8 +210,7 @@ void MainWindow::enableEPIActionButtons()
     for (int jList=0; jList<_fMRIFiles.size(); jList++)
     {
         bool includeFile = _fMRIRunItems[jList].checkState();
-        if ( includeFile )
-        {
+        if ( includeFile )        {
             FourDFile file = _fMRIFiles[jList];
             allSameDimension &= file.dim.x == _dimEPITemplate.x;
             allSameDimension &= file.dim.y == _dimEPITemplate.y;
@@ -191,7 +218,8 @@ void MainWindow::enableEPIActionButtons()
         }
     }
     _resliceEPIButton->setEnabled(!allSameDimension);
-    _motionCorrectEPIButton->setEnabled(allSameDimension);
+    bool notMC = _fMRIFileNameBox->currentText().compare("mc.nii");
+    _motionCorrectEPIButton->setEnabled(allSameDimension && notMC);
     _alignEPIButton->setEnabled(allSameDimension);
     FUNC_EXIT << allSameDimension;
 }
@@ -251,6 +279,27 @@ void MainWindow::resliceEPI()
 void MainWindow::finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitStatus )
 {
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
+
+    QString exe = _scriptDirectory + "linkNonReslicedRaws.csh";
+    QStringList arguments;
+    for (int jFile=0; jFile<_fMRIFiles.size(); jFile++)
+    {
+        bool includeFile = _fMRIRunItems[jFile].checkState();
+        if ( includeFile )
+        {
+            FUNC_INFO << "jFile" << jFile << "name" << _fMRIFiles[jFile].name << "args" << arguments;
+            iPoint4D dim = _fMRIFiles[jFile].dim;
+            bool sameDimensions = dim.x == _dimEPITemplate.x;
+            sameDimensions     &= dim.y == _dimEPITemplate.y;
+            sameDimensions     &= dim.z == _dimEPITemplate.z;
+            if ( sameDimensions )
+                arguments.append(_fMRIFiles[jFile].name);
+        }
+    }
+
+    qInfo() <<  exe << arguments;
+    auto *process = new QProcess;
+    process->startDetached(exe,arguments);
     _centralWidget->setEnabled(true);
 }
 
@@ -284,4 +333,37 @@ void MainWindow::finishedFMAlignEPI(int exitCode, QProcess::ExitStatus exitStatu
 {
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
     _centralWidget->setEnabled(true);
+}
+
+void MainWindow::motionCorrectEPI()
+{ // given a subject and datapath, this will download everything using "unpacksdcmdir"
+    auto *process = new QProcess;
+    _outputBrowser->setWindowTitle("Motion-correct EPI");
+    showBrowser(true);
+    QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedMotionCorrectEPI(int, QProcess::ExitStatus)));
+
+    process->setProcessChannelMode(QProcess::MergedChannels);
+
+    QString exe = _scriptDirectory + "motionCorrectEPI.csh";
+    QStringList arguments;
+    // arguments: [MC template dir] [template range (e.g. 1-10)] [list of files: "epi/011/reslice.nii ..."]
+    arguments.append(_fMRITemplateDirectoryBox->currentText());
+    arguments.append(_fMRIMCRange->text());
+    // list of EPI directories to motion-correct ...
+    for (int jFile=0; jFile<_fMRIFiles.size(); jFile++)
+    {
+        bool includeFile = _fMRIRunItems[jFile].checkState();
+        if ( includeFile )
+            arguments.append(_fMRIFiles[jFile].name);
+    }
+    qInfo() <<  exe << arguments;
+    process->start(exe,arguments);
+    _centralWidget->setEnabled(false);
+}
+void MainWindow::finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    updateFileNameBox();
+    _centralWidget->setEnabled(true);
+    showBrowser(false);
 }

@@ -136,6 +136,8 @@ struct imageHeader
     int fileType=NIFTI_NII; // e.g., bshort, bfloat, blong, nifti_nii, nifti_img
     int dataType=0;         // 0 = float, 1 = real-imaginary, 2 = magnitude-phase, 3 = vector
     int storageType=BFLOAT; // storage type: bshort, bfloat, blong
+    int slice_code = 0;
+    float slice_duration=0.;
     double DOF=0.;          // degrees of freedom for statistics; default value 0
     int voxelOffset;        // offset to the first voxel data in the file
     float scaleSlope;       // scaling factor for data (data --> slope*data + offset); ignore if 0; default 0

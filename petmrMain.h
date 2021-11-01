@@ -42,9 +42,10 @@ private:
 
     QString _fastmapProcess     = "/homes/1/jbm/space1/dev/build-FM-Desktop_Qt_5_6_2_GCC_64bit-Release/FM";
     QString _findsessionProcess = "/usr/pubsw/bin/findsession";
+    QString _dicomDumpProcess   = "/usr/bin/dcmdump";
     QString _scriptDirectory    = "/homes/1/jbm/script/analyze-fm/";
 
-    enum tabPages
+    enum tabPages_fMRIFiles
     {
         page_download,
         page_anatomy,
@@ -63,8 +64,8 @@ private:
     };
     struct FourDFile
     {
-        QString name;
-        iPoint4D dim;
+        QString name;       // "epi/004/raw.nii"
+        iPoint4D dim;       // x,y,z,t
     };
     struct programVariables
     {
@@ -75,6 +76,7 @@ private:
     struct downloadScan
     {
         QString scanNumber;
+        QString scanNumberNew;  // "1" --> "001"
         QString sequenceName;
         iPoint4D dim;
         scanCategory category;
@@ -88,6 +90,7 @@ private:
     QWidget *_downLoadPage;
     QWidget *_anatomyPage;
     QWidget *_fmriPage;
+    QWidget *_petPage;
     QStatusBar *_statusBar;
     QAction *_browserAction;
 
@@ -124,9 +127,14 @@ private:
     QVector<QListWidgetItem> _fMRIRunItems;
     QComboBox *_fMRITemplateDirectoryBox; // an existing directory
     QComboBox *_fMRIFileNameBox;          // "raw.nii or "mc.nii"
+    QLineEdit *_fMRIMCRange;              // e.g. 1-10
     QPushButton *_resliceEPIButton;
     QPushButton *_motionCorrectEPIButton;
     QPushButton *_alignEPIButton;
+
+    // PET page
+    QListWidget *_petRunItemsBox;
+    QVector<QListWidgetItem> _petRunItems;
 
     // non-GUI variables
     QSettings _savedQSettings;        // needs organization & application name to work (see main.cpp)
@@ -138,17 +146,20 @@ private:
     void createDownloadPage();
     void createAnatomyPage();
     void createfMRIPage();
+    void createPETPage();
     void openedAnatomyPage();
     void openedfMRIPage();
     void readQSettings();
     void writeQSettings();
     QString getDimensions(QString fileName, iPoint4D &dim);
     void enableEPIActionButtons();
-    void outputConfigurationFile();
+    void outputDownloadList();
     void getSubjectNameFromFreeDir();
     void readAvailableScanList();
     void readUnpackLog();
     bool enableDownloadData();
+    void reformatAcquisitionTimes(downloadScan scan);
+    void updateFileNameBox();
 
 public:
     MainWindow(QWidget *parent = 0);
@@ -158,17 +169,17 @@ private slots:
     {
         qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
         _centralWidget->setEnabled(true);
-        _browserAction->setCheckable(false);
-//        _outputBrowser->hide();
+        showBrowser(false);
     }
     inline void outputToBrowser()
     {
         QProcess *process = qobject_cast<QProcess*>(sender());
         _outputBrowser->append(process->readAllStandardOutput());
     }
-    inline void showBrowser()
+    inline void showBrowser(bool show)
     {
-        if ( _browserAction->isChecked() )
+        FUNC_ENTER << show;
+        if ( show )
             _outputBrowser->show();
         else
             _outputBrowser->hide();
@@ -177,11 +188,12 @@ private slots:
     inline void changedDownloadIDBox(int indexInBox)   {_downloadPathBox->setCurrentIndex(indexInBox);}
     inline void changedDownloadPathBox(int indexInBox) {_downloadIDBox->setCurrentIndex(indexInBox);}
     void finishedGeneratingScanList(int exitCode, QProcess::ExitStatus exitStatus);
-
+    void finishedDownloadData(int exitCode, QProcess::ExitStatus exitStatus);
 
     void queryDownloadPaths();
     void generateScanList();
     void downloadData();
+    void finishedDownloadDataNew();
     void aboutApp();
     void exitApp();
     void changedPage(int index);
@@ -189,14 +201,18 @@ private slots:
     void finishedFMAnatomyAlignment(int exitCode, QProcess::ExitStatus exitStatus );
 
     void resliceEPI();
-    //    void motionCorrectEPI();
+    void motionCorrectEPI();
     void alignEPI();
     void changefMRITemplateDirectory(int indexInBox);
+    void changedfMRIFileName(int indexInBox);
     void finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitStatus );
     void finishedFMAlignEPI(int exitCode, QProcess::ExitStatus exitStatus );
     void changedfMRIRunCheckBox(QListWidgetItem* item);
     void changedfMRIRunSelection();
     void changedDownloadScanCheckBox(QListWidgetItem *item);
+    
+    void finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus);
+    
 
 };
 
