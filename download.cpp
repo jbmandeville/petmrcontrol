@@ -72,6 +72,11 @@ void MainWindow::createDownloadPage()
     QFileInfo checkRunLog(runLog);
     if (checkRunLog.exists() && checkRunLog.isFile())
         readAvailableScanList();
+
+    QString downFile = "download-list.dat";
+    QFileInfo checkDownFile(downFile);
+    if (checkDownFile.exists() && checkDownFile.isFile())
+        _downloadDataButton->setStyleSheet("background-color:lightYellow;");
     _downloadDataButton->setEnabled(enableDownloadData());
 }
 
@@ -152,6 +157,7 @@ void MainWindow::readAvailableScanList()
     QFile infile("scan-list.log");
     if (!infile.open(QIODevice::ReadOnly | QIODevice::Text))
         return;
+    _generateScanListButton->setStyleSheet("background-color:lightYellow;");
     QTextStream in_stream(&infile);
 
     int iLine=0;
@@ -254,7 +260,10 @@ void MainWindow::readAvailableScanList()
         if ( scan.selectedForDownload )
             _scanItems[jList].setCheckState(Qt::Checked);
         else
+        {
             _scanItems[jList].setCheckState(Qt::Unchecked);
+            _scanItems[jList].setBackgroundColor(Qt::yellow);
+        }
         _scanItems[jList].setHidden(false);
         _scanItemsBox->addItem(&_scanItems[jList]);
     }
@@ -294,8 +303,8 @@ void MainWindow::readUnpackLog()
         {
             FUNC_INFO << "add subject" << stringList.at(iPatient+1);
             _downloadIDBox->addItem(stringList.at(iPatient+1));
-            _downloadIDBox->setEnabled(false);  // lock the ID box
-            _querySubjectButton->setEnabled(false);
+            _queryDownloadGroupBox->setEnabled(false);
+            _queryDownloadGroupBox->setStyleSheet("background-color:lightYellow;");
         }
         int iSrc=stringList.indexOf("-src");
         FUNC_INFO << stringList << "iSrc" << iSrc;
@@ -303,8 +312,8 @@ void MainWindow::readUnpackLog()
         {
             FUNC_INFO << "add path" << iSrc+1 << "size" << stringList.size();
             _downloadPathBox->addItem(stringList.at(iSrc+1));
-            _downloadPathBox->setEnabled(false);
-            _querySubjectButton->setEnabled(false);
+            _queryDownloadGroupBox->setEnabled(false);
+            _queryDownloadGroupBox->setStyleSheet("background-color:lightYellow;");
             _generateScanListButton->setEnabled(true);
         }
     }
@@ -396,7 +405,7 @@ void MainWindow::reformatAcquisitionTimes(downloadScan scan)
     if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text))
         return;
     QTextStream out(&outFile);
-    out << "Volume secondsTotal hours minutes seconds\n";
+    out << "Volume secondsTotal time\n";
 
     int nSlices = scan.dim.z;
     if ( scan.category == category_EPI )
@@ -418,13 +427,14 @@ void MainWindow::reformatAcquisitionTimes(downloadScan scan)
             double value   = stringList.at(2).toDouble();
             short hours    = static_cast<short>(value/10000.);
             short minutes  = static_cast<short>((value - 10000*hours)/100.);
-            double seconds = static_cast<short>(value - 10000*hours - 100*minutes);
+            short seconds = static_cast<short>(value - 10000*hours - 100*minutes);
             double secondsTotal = 3600. * hours + 60. * minutes + seconds;
             FUNC_INFO << "time" << hours << minutes << seconds;
             int iSlice = nEntries % nSlices;
             if ( iSlice == 0 )
             {
-                out << iTime+1 << " " << secondsTotal << " " << hours << " " << minutes << " " << seconds << "\n";
+                out << QString("%1 %2 %3:%4.%5\n").arg(iTime).arg(secondsTotal).
+                       arg(twoDigits(hours)).arg(twoDigits(minutes)).arg(twoDigits(seconds));
                 iTime++;
             }
             nEntries++;

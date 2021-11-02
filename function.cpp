@@ -1,21 +1,18 @@
 #include <QtWidgets>
 #include "petmrMain.h"
-#include "ImageIO.h"
 
 void MainWindow::createfMRIPage()
 {
     _fmriPage = new QWidget();
 
-    _fMRIRunItemsBox = new QListWidget();
-    _fMRIRunItemsBox->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::MinimumExpanding);
-    _fMRIRunItemsBox->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
-    connect(_fMRIRunItemsBox, SIGNAL(itemChanged(QListWidgetItem*)),
-            this, SLOT(changedfMRIRunCheckBox(QListWidgetItem*)));
-    connect(_fMRIRunItemsBox, SIGNAL(itemSelectionChanged()),
-            this, SLOT(changedfMRIRunSelection()));
+    _fMRIRunItemBox = new QListWidget();
+    _fMRIRunItemBox->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::MinimumExpanding);
+    _fMRIRunItemBox->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
+    connect(_fMRIRunItemBox, SIGNAL(itemChanged(QListWidgetItem*)),this, SLOT(changedfMRIRunCheckBox(QListWidgetItem*)));
+//    _fMRIRunItems = new QVector<QListWidgetItem *>;
 
     auto *runsLayout = new QVBoxLayout();
-    runsLayout->addWidget(_fMRIRunItemsBox);
+    runsLayout->addWidget(_fMRIRunItemBox);
 
     auto *templateLabel = new QLabel("template directory");
     auto *fileLabel     = new QLabel("file name(s)");
@@ -53,12 +50,11 @@ void MainWindow::createfMRIPage()
     actionLayout->addWidget(_motionCorrectEPIButton);
     actionLayout->addWidget(_alignEPIButton);
 
-    auto *actionBox = new QGroupBox("Process EPI runs");
-    actionBox->setLayout(actionLayout);
-
+    _fMRIActionBox = new QGroupBox("Process EPI runs");
+    _fMRIActionBox->setLayout(actionLayout);
     auto *pageLayout = new QVBoxLayout();
     pageLayout->addWidget(runsBox);
-    pageLayout->addWidget(actionBox);
+    pageLayout->addWidget(_fMRIActionBox);
     _fmriPage->setLayout(pageLayout);
 }
 
@@ -90,10 +86,6 @@ void MainWindow::changedfMRIRunCheckBox(QListWidgetItem *item)
     }
     enableEPIActionButtons();
 }
-void MainWindow::changedfMRIRunSelection()
-{
-    FUNC_ENTER << "**";
-}
 
 void MainWindow::changefMRITemplateDirectory(int indexInBox)
 {
@@ -103,7 +95,7 @@ void MainWindow::changefMRITemplateDirectory(int indexInBox)
     for (int jList=0; jList<_fMRIRunItems.size(); jList++)
     {
         if ( jList == indexInBox && _fMRIRunItems[jList].checkState() )
-            _fMRIRunItems[jList].setBackgroundColor(Qt::yellow);
+            _fMRIRunItems[jList].setBackgroundColor(Qt::cyan);
         else
             _fMRIRunItems[jList].setBackgroundColor(Qt::white);
     }
@@ -121,17 +113,40 @@ void MainWindow::openedfMRIPage()
     }
     FUNC_INFO << 1;
     QStringList const folderList = fMRITopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-
-    // fMRI template directory combo box
-    _fMRITemplateDirectoryBox->clear();
     for (int jList=0; jList<folderList.size(); jList++)
-        _fMRITemplateDirectoryBox->addItem(folderList.at(jList));
+    {
+        QString rawName     = fMRITopDir.absolutePath() + "/" + folderList.at(jList) + "/raw.nii";
+        QString resliceName = fMRITopDir.absolutePath() + "/" + folderList.at(jList) + "/reslice.nii";
+        QString alignName   = fMRITopDir.absolutePath() + "/" + folderList.at(jList) + "/align.nii";
+        QFileInfo checkRaw(rawName);
+        QFileInfo checkReslice(resliceName);
+        QFileInfo checkAlign(alignName);
+        if ( (checkRaw.exists() && checkRaw.isFile()) ||
+             (checkReslice.exists() && checkReslice.isFile()) ||
+             (checkAlign.exists() && checkAlign.isFile()) )
+            _fMRITemplateDirectoryBox->addItem(folderList.at(jList));
+    }
+
+    // Find the template directory
+    int iTemplate=-1;
+    for (int jList=0; jList<_fMRITemplateDirectoryBox->count(); jList++)
+    {
+        QString fileName = fMRITopDir.absolutePath() + "/" + _fMRITemplateDirectoryBox->itemText(jList) + "/mcTemplate.nii";
+        QFileInfo checkTemplate(fileName);
+        FUNC_INFO << "check template" << fileName;
+        if (checkTemplate.exists() && checkTemplate.isFile())
+        {
+            iTemplate = jList;
+            FUNC_INFO << "found template" << iTemplate;
+        }
+    }
+    iTemplate = qMax(0,iTemplate);
 
     // Given the fMRI template directory, pick a file type
     // For the first selection, show all NIFTI files
+    _fMRITemplateDirectoryBox->setCurrentIndex(iTemplate);
     updateFileNameBox();
-    _fMRITemplateDirectoryBox->setCurrentIndex(0);
-    changefMRITemplateDirectory(0);
+    changefMRITemplateDirectory(iTemplate);
 
     enableEPIActionButtons();
 
@@ -141,21 +156,25 @@ void MainWindow::openedfMRIPage()
 void MainWindow::updateFileNameBox()
 {
     QString path = "./epi/" + _fMRITemplateDirectoryBox->currentText();
+    FUNC_ENTER << path;
     QDir templateDir(path);
-    FUNC_INFO << "path" << path;
     templateDir.setNameFilters(QStringList()<<"*.nii");
     QStringList fileList = templateDir.entryList();
     FUNC_INFO << fileList;
     _fMRIFileNameBox->clear();
-    int indexRaw=-1;  int indexReslice=-1;  int indexMC=-1;
+    int indexRaw=-1;  int indexReslice=-1;  int indexMC=-1;  int indexAlign=-1;
     for (int jList=0; jList<fileList.size(); jList++)
     {
-        _fMRIFileNameBox->addItem(fileList.at(jList));
-        if ( fileList.at(jList) == "mc.nii")     indexMC = jList;
-        if ( fileList.at(jList) == "reslice.nii") indexReslice   = jList;
-        if ( fileList.at(jList) == "raw.nii")     indexRaw   = jList;
+        if ( fileList.at(jList).compare("mcTemplate.nii") )  // don't add template to list
+            _fMRIFileNameBox->addItem(fileList.at(jList));
+        if ( fileList.at(jList) == "raw.nii")     indexRaw     = jList;
+        if ( fileList.at(jList) == "reslice.nii") indexReslice = jList;
+        if ( fileList.at(jList) == "mc.nii")      indexMC      = jList;
+        if ( fileList.at(jList) == "align.nii")   indexAlign   = jList;
     }
-    if ( indexMC >= 0 )
+    if ( indexAlign >= 0 )
+        _fMRIFileNameBox->setCurrentIndex(indexAlign);
+    else if ( indexMC >= 0 )
         _fMRIFileNameBox->setCurrentIndex(indexMC);
     else if ( indexReslice >= 0 )
         _fMRIFileNameBox->setCurrentIndex(indexReslice);
@@ -164,13 +183,22 @@ void MainWindow::updateFileNameBox()
     else
         _fMRIFileNameBox->setCurrentIndex(0);
 
+    FUNC_INFO << "indexRaw indexReslice indexMC indexAlign" << indexRaw << indexReslice << indexMC << indexAlign;
+
+    if ( indexReslice >= 0 )
+        _resliceEPIButton->setStyleSheet("background-color:lightYellow;");
+    if ( indexMC >= 0 )
+        _motionCorrectEPIButton->setStyleSheet("background-color:lightYellow;");
+    if ( indexAlign >= 0 )
+        _alignEPIButton->setStyleSheet("background-color:lightYellow;");
+
     FUNC_INFO << 2;
     changedfMRIFileName(_fMRIFileNameBox->currentIndex());
 }
 
 void MainWindow::changedfMRIFileName(int indexInBox)
 {
-    QDir const fMRITopDir("./epi");
+    QDir const fMRITopDir("./epi/");
     if (!fMRITopDir.exists())
     {
         _fMRIRunItems.clear();
@@ -179,28 +207,59 @@ void MainWindow::changedfMRIFileName(int indexInBox)
     FUNC_INFO << 1;
     QStringList const folderList = fMRITopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 
-    QString path = fMRITopDir.dirName() + _fMRITemplateDirectoryBox->currentText();
+    QString path = fMRITopDir.dirName() + "/" + _fMRITemplateDirectoryBox->currentText();
     QString fileName = path + "/" + _fMRIFileNameBox->currentText();
     getDimensions(fileName, _dimEPITemplate);
 
-    _fMRIRunItems.resize(folderList.size());
-    _fMRIFiles.clear();
+    // Count files for allocation
+    int nFiles=0;
     for (int jList=0; jList<folderList.size(); jList++)
     {
         FourDFile file;
-        file.name = "epi/" + folderList.at(jList) + "/" + _fMRIFileNameBox->currentText();
-        FUNC_INFO << fileName << file.name;
-        QString text = getDimensions(file.name, file.dim);
-        _fMRIFiles.append(file);
-        _fMRIRunItems[jList].setText(folderList.at(jList) + " :    " + text);
-        _fMRIRunItems[jList].setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable | Qt::ItemIsSelectable);
-        _fMRIRunItems[jList].setCheckState(Qt::Checked);
-        _fMRIRunItems[jList].setHidden(false);
-        _fMRIRunItemsBox->addItem(&_fMRIRunItems[jList]);
+        file.name        = "epi/" + folderList.at(jList) + "/" + _fMRIFileNameBox->currentText();
+        QString tagsName = "epi/" + folderList.at(jList) + "/time-tags.txt";
+        getDimensions(file.name, file.dim);
+        getTimeTags(tagsName,file.timeTags,file.timeText);
+        if ( file.dim.z != 0 )
+            nFiles++;
     }
+
+    FUNC_INFO << "resize to" << nFiles;
+    _fMRIRunItemBox->clear();
+    _fMRIRunItems.resize(nFiles);
+    _fMRIFiles.resize(nFiles);
+    nFiles=0;
+    for (int jList=0; jList<folderList.size(); jList++)
+    {
+        FourDFile file;
+        file.name        = "epi/" + folderList.at(jList) + "/" + _fMRIFileNameBox->currentText();
+        QString tagsName = "epi/" + folderList.at(jList) + "/time-tags.txt";
+        QString text = getDimensions(file.name, file.dim);
+        getTimeTags(tagsName,file.timeTags,file.timeText);
+        if ( file.dim.z != 0 )
+        {
+            FUNC_INFO << "add fmri file" << folderList.at(jList) << text;
+            QListWidgetItem item;
+            item.setText(folderList.at(jList) + " :    " + text);
+            item.setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
+            item.setCheckState(Qt::Checked);
+            item.setHidden(false);
+            FUNC_INFO << "here 1";
+            _fMRIRunItems[nFiles] = item;
+            FUNC_INFO << "here 2";
+            _fMRIFiles[nFiles] = file;
+            FUNC_INFO << "here 3";
+            _fMRIRunItemBox->addItem(&_fMRIRunItems[nFiles]);
+            nFiles++;
+            FUNC_INFO << "added fmri file" << folderList.at(jList) << text;
+        }
+    }
+
+
     FUNC_INFO << "_fMRIFiles size" << _fMRIFiles.size();
 
     enableEPIActionButtons();
+    FUNC_EXIT;
 }
 
 void MainWindow::enableEPIActionButtons()
@@ -218,23 +277,11 @@ void MainWindow::enableEPIActionButtons()
         }
     }
     _resliceEPIButton->setEnabled(!allSameDimension);
-    bool notMC = _fMRIFileNameBox->currentText().compare("mc.nii");
-    _motionCorrectEPIButton->setEnabled(allSameDimension && notMC);
+    bool selectMC = !_fMRIFileNameBox->currentText().compare("mc.nii");
+    _motionCorrectEPIButton->setEnabled(allSameDimension && !selectMC);
+
     _alignEPIButton->setEnabled(allSameDimension);
     FUNC_EXIT << allSameDimension;
-}
-
-QString MainWindow::getDimensions(QString fileName, iPoint4D &dim)
-{
-    ImageIO file;
-    if ( !file.readFileHeader(fileName,false) )
-    {
-        dim = file.getDimensions();
-        QString text = QString("%1 x %2 x %3 with %4 time points").arg(dim.x).arg(dim.y).arg(dim.z).arg(dim.t);
-        return text;
-    }
-    else
-        return "";
 }
 
 void MainWindow::resliceEPI()

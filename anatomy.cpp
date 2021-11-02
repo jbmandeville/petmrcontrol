@@ -40,11 +40,6 @@ void MainWindow::createAnatomyPage()
     _freeSurferGroupBox = new QGroupBox("Run FreeSurfer to delineate anatomy (takes HOURS)");
     _freeSurferGroupBox->setLayout(freeSurferLayout);
 
-    QString freeDir = "free";
-    QFileInfo checkDir(freeDir);
-    if (checkDir.exists() && checkDir.isDir())
-        getSubjectNameFromFreeDir();    // get subject name
-
     ////////////////////////////////////////////////
     // anatomy registration
     ////////////////////////////////////////////////
@@ -79,6 +74,11 @@ void MainWindow::createAnatomyPage()
     _anatomyAlignmentBox = new QGroupBox("Use fastmap to align anatomy to a multi-subject template");
     _anatomyAlignmentBox->setLayout(anatomyAlignmentLayout);
 
+    QString freeDir = "free";
+    QFileInfo checkDir(freeDir);
+    if (checkDir.exists() && checkDir.isDir())
+        getSubjectNameFromFreeDir();    // get subject name
+
     ////////////////////////////////////////////////
     // full page layout
     ////////////////////////////////////////////////
@@ -102,6 +102,8 @@ void MainWindow::getSubjectNameFromFreeDir()
         _subjectIDFreeSurfer->setText(folderList.at(0));
         _freeSurferGroupBox->setEnabled(false);
         _queryDownloadGroupBox->setEnabled(false);
+        _anatomyAlignmentBox->setStyleSheet("background-color:lightYellow;");
+        _freeSurferGroupBox->setStyleSheet("background-color:lightYellow;");
         setWindowTitle(QString("petmrcontrol: %1").arg(_subjectIDFreeSurfer->text()));
     }
 }
@@ -116,63 +118,40 @@ void MainWindow::openedAnatomyPage()
         _anatomyInputDirectoryBox->clear();
         return;
     }
-    // Save the old list
-    QStringList oldFolderList;
-    for (int jList=0; jList<_anatomyInputDirectoryBox->count(); jList++)
-        oldFolderList.append(_anatomyInputDirectoryBox->itemText(jList));
     QStringList const folderList = anatomyTopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    qInfo() << folderList;
+    _anatomyInputDirectoryBox->clear();
+    for (int jList=0; jList<folderList.size(); jList++)
+        _anatomyInputDirectoryBox->addItem(folderList.at(jList));
+    _anatomyInputDirectoryBox->setCurrentIndex(_anatomyInputDirectoryBox->count()-1);
 
-    // Did something change?
-    bool changeOnDisk = _anatomyInputDirectoryBox->count() != folderList.size();
-    if ( !changeOnDisk )
-    {
-        for (int jList=0; jList<_anatomyInputDirectoryBox->count(); jList++)
-            changeOnDisk |= _anatomyInputDirectoryBox->itemText(jList) != folderList.at(jList);
-    }
-    if ( changeOnDisk )
-    { // Something changed
-        qInfo() << folderList;
-        _anatomyInputDirectoryBox->clear();
-        for (int jList=0; jList<folderList.size(); jList++)
-            _anatomyInputDirectoryBox->addItem(folderList.at(jList));
-        _anatomyInputDirectoryBox->setCurrentIndex(_anatomyInputDirectoryBox->count()-1);
-    }
-
-    FUNC_INFO << 1;
     // For the current selection, show all NIFTI files
     QString path = "./t1/" + _anatomyInputDirectoryBox->currentText();
     QDir anatomyDir(path);
     anatomyDir.setNameFilters(QStringList()<<"*.nii");
     QStringList fileList = anatomyDir.entryList();
-    // Did something change?
-    changeOnDisk = _anatomyFileNameBox->count() != fileList.size();
-    if ( !changeOnDisk )
+
+    _anatomyFileNameBox->clear();
+    int indexRaw=-1;  int indexBrain=-1;
+    for (int jList=0; jList<fileList.size(); jList++)
     {
-        for (int jList=0; jList<_anatomyFileNameBox->count(); jList++)
-            changeOnDisk |= _anatomyFileNameBox->itemText(jList) != fileList.at(jList);
+        _anatomyFileNameBox->addItem(fileList.at(jList));
+        if ( fileList.at(jList) == "brain.nii") indexBrain = jList;
+        if ( fileList.at(jList) == "raw.nii")   indexRaw   = jList;
     }
-    if ( changeOnDisk )
-    { // Something changed
-        qInfo() << fileList;
-        _anatomyFileNameBox->clear();
-        int indexRaw=-1;  int indexBrain=-1;
-        for (int jList=0; jList<fileList.size(); jList++)
-        {
-            _anatomyFileNameBox->addItem(fileList.at(jList));
-            if ( fileList.at(jList) == "brain.nii") indexBrain = jList;
-            if ( fileList.at(jList) == "raw.nii")   indexRaw   = jList;
-        }
-        if ( indexBrain >= 0 )
-        {
-            _anatomyFileNameBox->setCurrentIndex(indexBrain);
-            _anatomyInputBox->setEnabled(false);
-            _anatomyAlignmentBox->setEnabled(false);
-        }
-        else if ( indexRaw >= 0 )
-            _anatomyFileNameBox->setCurrentIndex(indexRaw);
-        else
-            _anatomyFileNameBox->setCurrentIndex(0);
+    if ( indexBrain >= 0 )
+    {
+        _anatomyFileNameBox->setCurrentIndex(indexBrain);
+        _anatomyInputBox->setEnabled(false);
+        _anatomyAlignmentBox->setEnabled(false);
+        _anatomyInputBox->setStyleSheet("background-color:lightYellow;");
+        _anatomyAlignmentBox->setStyleSheet("background-color:lightYellow;");
     }
+    else if ( indexRaw >= 0 )
+        _anatomyFileNameBox->setCurrentIndex(indexRaw);
+    else
+        _anatomyFileNameBox->setCurrentIndex(0);
+
     FUNC_INFO << 2;
     QString fileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/raw.nii";
     _freeSurferInputFile->setText(fileName);

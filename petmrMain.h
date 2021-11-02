@@ -19,17 +19,17 @@
 
 ////////////////////////////////////////////////////
 // Global variables:
-// 1) download ID   (could be take from log file in principle)
-// 2) download path (could be take from log file in principle)
-
-// 3) multi-subject template directory (currently qsettings; should be local)
-// 4) smoothing
+// 1) multi-subject template directory (currently qsettings; should be local)
+// 2) smoothing
 //
-// addtional variables needed for EPI page:
-// 1) fMRI run list
+// additional variables needed for EPI page
+// - probably not necessary to keep template averaging range (mcTemplate will be kept)
+// - get template directory from mcTemplate.nii
+// - get fMRI run list from location of mc.nii or align.nii
 //
-// addtional variables needed for PET page:
-//
+// PET page needs to know
+// 1) list of EPI runs with times overlapping with PET
+// 2) show PET frames with overlap
 //
 
 ////////////////////////////////////////////////////
@@ -49,7 +49,8 @@ private:
     {
         page_download,
         page_anatomy,
-        page_fMRI
+        page_fMRI,
+        page_PET
     };
     enum scanCategory
     {
@@ -66,6 +67,8 @@ private:
     {
         QString name;       // "epi/004/raw.nii"
         iPoint4D dim;       // x,y,z,t
+        dVector timeTags;   // seconds[dim.t]
+        sVector timeText;   // string[dim.t]
     };
     struct programVariables
     {
@@ -123,7 +126,7 @@ private:
     QGroupBox *_anatomyAlignmentBox;
 
     // fMRI page
-    QListWidget *_fMRIRunItemsBox;
+    QListWidget *_fMRIRunItemBox;
     QVector<QListWidgetItem> _fMRIRunItems;
     QComboBox *_fMRITemplateDirectoryBox; // an existing directory
     QComboBox *_fMRIFileNameBox;          // "raw.nii or "mc.nii"
@@ -131,17 +134,24 @@ private:
     QPushButton *_resliceEPIButton;
     QPushButton *_motionCorrectEPIButton;
     QPushButton *_alignEPIButton;
+    QGroupBox *_fMRIActionBox;
 
     // PET page
-    QListWidget *_petRunItemsBox;
-    QVector<QListWidgetItem> _petRunItems;
+    QComboBox *_petRunBox;
+    QListWidget *petFramesBox;
+    QVector<QListWidgetItem> _petFrameItems;
+    QLabel *_fMRIForPETTemplate;
+    QLabel *_fMRIForPETFileName;
 
     // non-GUI variables
     QSettings _savedQSettings;        // needs organization & application name to work (see main.cpp)
     QVector<downloadScan> _scans;
     QString _lastTemplateDirectory;   // this should be written locally, not read from qsettings
     QVector<FourDFile> _fMRIFiles;
+    QVector<FourDFile> _fMRIFilesForPETMC;
+    FourDFile _petFile;
     iPoint4D _dimEPITemplate;
+    d2Matrix _matchingEPI;  // [_petFile.dim.t][list of pairs (fMRI file,time point)]
 
     void createDownloadPage();
     void createAnatomyPage();
@@ -149,9 +159,9 @@ private:
     void createPETPage();
     void openedAnatomyPage();
     void openedfMRIPage();
+    void openedPETPage();
     void readQSettings();
     void writeQSettings();
-    QString getDimensions(QString fileName, iPoint4D &dim);
     void enableEPIActionButtons();
     void outputDownloadList();
     void getSubjectNameFromFreeDir();
@@ -160,6 +170,13 @@ private:
     bool enableDownloadData();
     void reformatAcquisitionTimes(downloadScan scan);
     void updateFileNameBox();
+    void updatePETRunBox();
+    void findPETandFMRIOverlap();
+
+    QString getDimensions(QString fileName, iPoint4D &dim);
+    void getTimeTags(QString fileName, dVector &timeTags, sVector &timeText );
+    QString twoDigits(short time);
+    dPoint2D petFrameTime(int iFrame);
 
 public:
     MainWindow(QWidget *parent = 0);
@@ -208,11 +225,11 @@ private slots:
     void finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitStatus );
     void finishedFMAlignEPI(int exitCode, QProcess::ExitStatus exitStatus );
     void changedfMRIRunCheckBox(QListWidgetItem* item);
-    void changedfMRIRunSelection();
     void changedDownloadScanCheckBox(QListWidgetItem *item);
     
     void finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus);
     
+    void changedPETFrameSelection(QListWidgetItem *item);
 
 };
 

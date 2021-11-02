@@ -1,4 +1,5 @@
 #include <QtWidgets>
+#include "ImageIO.h"
 #include "petmrMain.h"
 
 MainWindow::~MainWindow()
@@ -89,6 +90,8 @@ void MainWindow::changedPage(int index)
         openedAnatomyPage();
     else if ( index == page_fMRI )
         openedfMRIPage();
+    else if ( index == page_PET )
+        openedPETPage();
 }
 
 void MainWindow::aboutApp()
@@ -123,4 +126,73 @@ void MainWindow::writeQSettings()
 {
     _savedQSettings.setValue("lastTemplateDirectory",_anatomyTemplateDirectory->currentText());
     _savedQSettings.sync();
+}
+
+QString MainWindow::getDimensions(QString fileName, iPoint4D &dim)
+{
+    ImageIO file;
+    if ( !file.readFileHeader(fileName,false) )
+    {
+        dim = file.getDimensions();
+        QString text = QString("%1 x %2 x %3 with %4 time points").arg(dim.x).arg(dim.y).arg(dim.z).arg(dim.t);
+        return text;
+    }
+    else
+    {
+        dim={0,0,0,0};
+        return "";
+    }
+}
+
+void MainWindow::getTimeTags(QString fileName, dVector &timeTags, sVector &timeText )
+{
+    FUNC_ENTER << fileName;
+    timeTags.clear();  timeText.clear();
+
+    QFile inFile(fileName);
+    if (!inFile.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+
+    QTextStream in_stream(&inFile);
+    QString line = in_stream.readLine(); // header
+
+    int iLine=0;
+    while (!in_stream.atEnd())
+    {
+        iLine++;
+        QString line = in_stream.readLine();
+        QRegExp rx("[,\\s]");// match a comma or a space
+        QStringList stringList = line.split(rx, QString::SkipEmptyParts);
+        FUNC_INFO << stringList;
+        if ( stringList.count() >= 3 )
+        {
+            double value = stringList.at(1).toDouble();
+            timeTags.append(value);
+            timeText.append(stringList.at(2));
+        }
+    }
+    inFile.close();
+}
+
+QString MainWindow::twoDigits(short time)
+{
+    QString text;
+    if ( time < 10 )
+        text = QString("0%1").arg(time);
+    else
+        text = QString("%1").arg(time);
+    return text;
+}
+
+dPoint2D MainWindow::petFrameTime(int iFrame)
+{
+    double width;
+    if ( iFrame < _petFile.dim.t-1 )
+        width = _petFile.timeTags.at(iFrame+1) - _petFile.timeTags.at(iFrame);
+    else // last bin has same width as 2nd to last bin
+        width = _petFile.timeTags.at(iFrame) - _petFile.timeTags.at(iFrame-1);
+    double timePET = _petFile.timeTags.at(iFrame);
+    double startPET = timePET - width/2.;
+    double endPET   = timePET + width/2.;
+    return {startPET, endPET};
 }
