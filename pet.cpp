@@ -12,6 +12,7 @@ void MainWindow::createPETPage()
     petFramesBox->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::MinimumExpanding);
     petFramesBox->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
     connect(petFramesBox, SIGNAL(itemClicked(QListWidgetItem*)),this, SLOT(changedPETFrameSelection(QListWidgetItem*)));
+    connect(_petRunBox, SIGNAL(activated(int)),this, SLOT(updatePETRunBox(int)));
 
     auto *petRunLayout = new QHBoxLayout();
     petRunLayout->addWidget(petRunLabel);
@@ -39,8 +40,21 @@ void MainWindow::createPETPage()
     auto *runsBox = new QGroupBox("PET run to pre-process");
     runsBox->setLayout(setupLayout);
 
+    _motionCorrectMatchingMRIButton = new QPushButton("Create/motion-correct matching MRI");
+    _motionCorrectPETButton = new QPushButton("Apply motion-correction to PET");
+    connect(_motionCorrectMatchingMRIButton, SIGNAL(pressed()), this, SLOT(motionCorrectMatchingMRI()));
+//    connect(_motionCorrectPETButton,         SIGNAL(pressed()), this, SLOT(motionCorrectPET()));
+
+    auto *actionLayout = new QVBoxLayout();
+    actionLayout->addWidget(_motionCorrectMatchingMRIButton);
+    actionLayout->addWidget(_motionCorrectPETButton);
+
+    auto *actionBox = new QGroupBox("Go do stuff");
+    actionBox->setLayout(actionLayout);
+
     auto *pageLayout = new QVBoxLayout();
     pageLayout->addWidget(runsBox);
+    pageLayout->addWidget(actionBox);
     _petPage->setLayout(pageLayout);
 }
 
@@ -56,23 +70,25 @@ void MainWindow::changedPETFrameSelection(QListWidgetItem *item)
     double timePET = _petFile.timeTags.at(iFrame);
     dPoint2D timeFrame = petFrameTime(iFrame);
     qInfo() << QString("PET frame %d has (start, center, end) at times (%1, %2, %3)").arg(timeFrame.lower).arg(timePET).arg(timeFrame.upper);
-    int currentRun;
     if ( _matchingEPI.size() > 0 )
     {
-        currentRun = _matchingEPI[iFrame].at(0).x;
-        if ( _matchingEPI[iFrame].size() > 0 )
-            qInfo() << "Overlap from run" << _fMRIFilesForPETMC.at(currentRun).name;
-        else
+        if ( _matchingEPI[iFrame].size() == 0 )
             qInfo() << "No overlap with EPI: motion-correction parameters will be interpolated for this point";
+        else
+        {
+            int currentRun = _matchingEPI[iFrame].at(0).x;
+            qInfo() << "Overlap with run" << _fMRIFilesForPETMC.at(currentRun).name;
+            for (int jPair=0; jPair<_matchingEPI[iFrame].size(); jPair++)
+            {
+                if  ( _matchingEPI[iFrame].at(jPair).x != currentRun )
+                {
+                    currentRun = _matchingEPI[iFrame].at(jPair).x;
+                    qInfo() << "Overlap woith run" << _fMRIFilesForPETMC.at(currentRun).name;
+                }
+                qInfo() << "time point" << _matchingEPI[iFrame].at(jPair).y;
+            }
+        }
     }
-    for (int jPair=0; jPair<_matchingEPI[iFrame].size(); jPair++)
-    {
-        if  ( _matchingEPI[iFrame].at(jPair).x != currentRun )
-            qInfo() << "Overlap from run" << _fMRIFilesForPETMC.at(currentRun).name;
-        qInfo() << "time point" << _matchingEPI[iFrame].at(jPair).y;
-        currentRun = _matchingEPI[iFrame].at(jPair).x;
-    }
-
 }
 
 void MainWindow::openedPETPage()
@@ -139,30 +155,37 @@ void MainWindow::openedPETPage()
         }
     }
 
-    updatePETRunBox();
+    updatePETRunBox(_petRunBox->currentIndex());
     FUNC_EXIT;
 }
 
-void MainWindow::updatePETRunBox()
+void MainWindow::updatePETRunBox(int indexInBox)
 {
     _petFile.name = "pet/" + _petRunBox->currentText() + "/raw.nii";
     QFileInfo checkFile(_petFile.name);
     if (checkFile.exists() && checkFile.isFile())
     {
         getDimensions(_petFile.name, _petFile.dim);
+        FUNC_INFO << "dim.t" << _petFile.dim.t;
         QString fileName = "pet/" + _petRunBox->currentText() + "/time-tags.txt";
         getTimeTags(fileName,_petFile.timeTags,_petFile.timeText);
         findPETandFMRIOverlap();
-        petFramesBox->clear();
+        FUNC_INFO << "sizes" << _petFile.dim.t << _petFile.timeText.size() << _matchingEPI.size();
+//        petFramesBox->clear();
+        FUNC_INFO << "here 1";
         _petFrameItems.resize(_petFile.dim.t);
+        FUNC_INFO << "here 2";
         for (int jFrame=0; jFrame<_petFile.dim.t; jFrame++)
         {
+            FUNC_INFO << "jFrame" << jFrame;
             QString text;
             if ( jFrame < _petFile.timeText.size() )
             {
                 int nOverlap = _matchingEPI[jFrame].count();
-                text = QString("%1: start %2, overlap with %3 fMRI points").arg(jFrame+1).arg(_petFile.timeText.at(jFrame))
-                        .arg(nOverlap);
+                dPoint2D frameTime = petFrameTime(jFrame);
+                double width = (frameTime.upper - frameTime.lower);
+                text = QString("%1: start %2, width %3 sec, overlap with %4 fMRI points").arg(jFrame+1).arg(_petFile.timeText.at(jFrame))
+                        .arg(width).arg(nOverlap);
             }
             else
                 text = QString("%1").arg(jFrame+1);
@@ -172,17 +195,14 @@ void MainWindow::updatePETRunBox()
             petFramesBox->addItem(&_petFrameItems[jFrame]);
         }
     }
+    FUNC_EXIT;
 }
 void MainWindow::findPETandFMRIOverlap()
 {
+    FUNC_ENTER;
     _matchingEPI.resize(_petFile.dim.t);
     for (int jFrame=0; jFrame<_petFile.dim.t; jFrame++)
     {
-        double width;
-        if ( jFrame < _petFile.dim.t-1 )
-            width = _petFile.timeTags.at(jFrame+1) - _petFile.timeTags.at(jFrame);
-        else // last bin has same width as 2nd to last bin
-            width = _petFile.timeTags.at(jFrame) - _petFile.timeTags.at(jFrame-1);
         dPoint2D timeFrame = petFrameTime(jFrame);
         for (int jFile=0; jFile<_fMRIFilesForPETMC.size(); jFile++)
         {
@@ -194,5 +214,97 @@ void MainWindow::findPETandFMRIOverlap()
                     _matchingEPI[jFrame].append({jFile,jt});
             }
         }
+        // output
+        FUNC_INFO << "matching EPI for frame" << jFrame+1;
+        for (int jPair=0; jPair<_matchingEPI[jFrame].size(); jPair++)
+        {
+            int iRun  = _matchingEPI[jFrame].at(jPair).x;
+            int iTime = _matchingEPI[jFrame].at(jPair).y;
+            FUNC_INFO << "(" << _fMRIFilesForPETMC.at(iRun).name << "," << iTime << ")";
+        }
     }
+//    writeJipCommandFileForMatchingMRI();
+    FUNC_EXIT;
+}
+
+void MainWindow::motionCorrectMatchingMRI()
+{
+    // First write the jip command file to create the matching MRI volume
+    writeJipCommandFileForMatchingMRI();
+
+    auto *process = new QProcess;
+    _outputBrowser->setWindowTitle("Motion-correct matching MRI");
+    showBrowser(true);
+    QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedMotionCorrectMatchingMRI(int, QProcess::ExitStatus)));
+    process->setProcessChannelMode(QProcess::MergedChannels);
+
+    QString exe = _scriptDirectory + "motionCorrectMatchingEPI.csh";
+    QStringList arguments;
+    // arguments: [EPI MC template dir] [pet dir]
+    arguments.append(_fMRITemplateDirectoryBox->currentText());
+    arguments.append(_petRunBox->currentText());
+    qInfo() <<  exe << arguments;
+    process->start(exe,arguments);
+    _centralWidget->setEnabled(false);
+}
+void MainWindow::finishedMotionCorrectMatchingMRI(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    _centralWidget->setEnabled(true);
+    showBrowser(false);
+}
+void MainWindow::writeJipCommandFileForMatchingMRI()
+{
+    QString fileName = "pet/" + _petRunBox->currentText() + "/jip-createMRI.com";
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+    QTextStream out(&file);
+
+    // Find all required epi runs; all vectors below contains indices into the list of runs _fMRIFilesForPETMC
+    for (int jFrame=0; jFrame<_matchingEPI.size(); jFrame++)
+    {
+        iVector firstPoint;  iVector lastPoint;
+        int nEPIFiles = _fMRIFilesForPETMC.size();
+        firstPoint.fill(-1,nEPIFiles);
+        lastPoint.fill(-1,nEPIFiles);
+        for (int jPair=0; jPair<_matchingEPI[jFrame].size(); jPair++)
+        {
+            int iRun  = _matchingEPI[jFrame].at(jPair).x;  // index into _fMRIFilesForPETMC
+            int iTime = _matchingEPI[jFrame].at(jPair).y;
+            if ( iTime >= 0 && firstPoint[iRun] < 0 ) firstPoint[iRun] = iTime;
+            if ( iTime > lastPoint[iRun] ) lastPoint[iRun] = iTime;
+        }
+
+        out << "# create matching MRI volume #" << jFrame+1 << "\n";
+        if ( _matchingEPI[jFrame].size() > 0 )
+        {
+            // Read all required files
+            for (int jFile=0; jFile<_fMRIFilesForPETMC.size(); jFile++)
+            {
+                QString dir = _fMRIFilesForPETMC.at(jFile).name;
+                QString name = "../../epi/" + dir + "/" + _fMRIForPETFileName->text();
+                if ( firstPoint.at(jFile) >= 0 )
+                    out << "read " << name << ">" << firstPoint.at(jFile) << "-" << lastPoint.at(jFile) << " " << dir << "\n";
+            }
+
+            // average all points (potentially more than 1 file) to create an average volume
+            out << "average volume";
+            // average to create volume
+            for (int jFile=0; jFile<_fMRIFilesForPETMC.size(); jFile++)
+            {
+                QString dir = _fMRIFilesForPETMC.at(jFile).name;
+                if ( firstPoint.at(jFile) >= 0 )
+                    out << " " << dir;
+            }
+            out << "\n";
+
+            // write the volume
+            out << "write matchingMRI.nii volume\n";
+            if ( jFrame != _matchingEPI.size()-1 )
+                out << "delete\n\n";
+        }
+    }
+    out << "bye\n";
+    file.close();
 }

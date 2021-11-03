@@ -383,7 +383,7 @@ void MainWindow::finishedFMAlignEPI(int exitCode, QProcess::ExitStatus exitStatu
 }
 
 void MainWindow::motionCorrectEPI()
-{ // given a subject and datapath, this will download everything using "unpacksdcmdir"
+{
     auto *process = new QProcess;
     _outputBrowser->setWindowTitle("Motion-correct EPI");
     showBrowser(true);

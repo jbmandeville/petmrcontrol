@@ -128,14 +128,24 @@ void MainWindow::writeQSettings()
     _savedQSettings.sync();
 }
 
+
 QString MainWindow::getDimensions(QString fileName, iPoint4D &dim)
 {
-    ImageIO file;
-    if ( !file.readFileHeader(fileName,false) )
+    QFileInfo checkFile(fileName);
+    if ( checkFile.exists() && checkFile.isFile() )
     {
-        dim = file.getDimensions();
-        QString text = QString("%1 x %2 x %3 with %4 time points").arg(dim.x).arg(dim.y).arg(dim.z).arg(dim.t);
-        return text;
+        ImageIO file;
+        if ( !file.readFileHeader(fileName,false) )
+        {
+            dim = file.getDimensions();
+            QString text = QString("%1 x %2 x %3 with %4 time points").arg(dim.x).arg(dim.y).arg(dim.z).arg(dim.t);
+            return text;
+        }
+        else
+        {
+            dim={0,0,0,0};
+            return "";
+        }
     }
     else
     {
@@ -154,7 +164,7 @@ void MainWindow::getTimeTags(QString fileName, dVector &timeTags, sVector &timeT
         return;
 
     QTextStream in_stream(&inFile);
-    QString line = in_stream.readLine(); // header
+    in_stream.readLine(); // header
 
     int iLine=0;
     while (!in_stream.atEnd())
@@ -186,6 +196,15 @@ QString MainWindow::twoDigits(short time)
 
 dPoint2D MainWindow::petFrameTime(int iFrame)
 {
+    double startPET = _petFile.timeTags.at(iFrame);
+    double endPET;
+    if ( iFrame < _petFile.timeTags.size()-1 )
+        endPET = _petFile.timeTags.at(iFrame+1);
+    else
+        endPET = startPET + (_petFile.timeTags.at(iFrame)-_petFile.timeTags.at(iFrame-1));
+    return {startPET, endPET};
+
+    /*
     double width;
     if ( iFrame < _petFile.dim.t-1 )
         width = _petFile.timeTags.at(iFrame+1) - _petFile.timeTags.at(iFrame);
@@ -195,4 +214,5 @@ dPoint2D MainWindow::petFrameTime(int iFrame)
     double startPET = timePET - width/2.;
     double endPET   = timePET + width/2.;
     return {startPET, endPET};
+    */
 }

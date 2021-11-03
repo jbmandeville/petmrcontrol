@@ -123,8 +123,7 @@ void MainWindow::queryDownloadPaths()
 }
 
 void MainWindow::generateScanList()
-{ // given a subject and datapath, this will download everything using "unpacksdcmdir"
-    //    unpacksdcmdir -src $DataPath -targ . -unpackerr -scanonly scan-list.log
+{
     auto *process = new QProcess;
     _outputBrowser->setWindowTitle("Query Progress");
     showBrowser(true);
@@ -148,6 +147,7 @@ void MainWindow::finishedGeneratingScanList(int exitCode, QProcess::ExitStatus e
     if (checkFile.exists() && checkFile.isFile())
         readAvailableScanList();
     _centralWidget->setEnabled(true);
+    _downloadDataButton->setEnabled(enableDownloadData());
     showBrowser(false);
 }
 
@@ -354,8 +354,7 @@ void MainWindow::outputDownloadList()
 }
 
 void MainWindow::downloadData()
-{ // given a subject and datapath, this will download everything using "unpacksdcmdir"
-    //    unpacksdcmdir -src $DataPath -targ . -unpackerr -scanonly scan-list.log
+{
     outputDownloadList();
 
     auto *process = new QProcess;
@@ -407,38 +406,31 @@ void MainWindow::reformatAcquisitionTimes(downloadScan scan)
     QTextStream out(&outFile);
     out << "Volume secondsTotal time\n";
 
-    int nSlices = scan.dim.z;
-    if ( scan.category == category_EPI )
-        nSlices = 1;  // mosaic
+    in_stream.readLine();  // "done retrieving file list xxx files found"
+    in_stream.readLine();  // "Values:"
 
-    int iTime=0;  int nEntries=0;
+    int iTime=0;
     while (!in_stream.atEnd())
     {
         QString line = in_stream.readLine();
-        FUNC_INFO << "line" << line;
-        QString newLine = line.remove("["); newLine.remove("]");
-        FUNC_INFO << "newLine" << newLine;
         QRegExp rx("[\\s]");// match a comma or a space
-        QStringList stringList = newLine.split(rx, QString::SkipEmptyParts);
-        if ( stringList.count() > 2 )
+        QStringList stringList = line.split(rx, QString::SkipEmptyParts);
+        if ( stringList.count() > 0 )
         {
-            FUNC_INFO << stringList;
-            FUNC_INFO << stringList.at(2);
-            double value   = stringList.at(2).toDouble();
+            QString text = stringList.at(0);
+            FUNC_INFO << text;
+            if ( ! text.compare("Mapping:")) break;
+            double value   = stringList.at(0).toDouble();
             short hours    = static_cast<short>(value/10000.);
             short minutes  = static_cast<short>((value - 10000*hours)/100.);
             short seconds = static_cast<short>(value - 10000*hours - 100*minutes);
             double secondsTotal = 3600. * hours + 60. * minutes + seconds;
             FUNC_INFO << "time" << hours << minutes << seconds;
-            int iSlice = nEntries % nSlices;
-            if ( iSlice == 0 )
-            {
-                out << QString("%1 %2 %3:%4.%5\n").arg(iTime).arg(secondsTotal).
-                       arg(twoDigits(hours)).arg(twoDigits(minutes)).arg(twoDigits(seconds));
-                iTime++;
-            }
-            nEntries++;
+            out << QString("%1 %2 %3:%4.%5\n").arg(iTime).arg(secondsTotal).
+                   arg(twoDigits(hours)).arg(twoDigits(minutes)).arg(twoDigits(seconds));
+            iTime++;
         }
     }
     infile.close();  outFile.close();
+    FUNC_EXIT << iTime;
 }

@@ -142,6 +142,8 @@ private:
     QVector<QListWidgetItem> _petFrameItems;
     QLabel *_fMRIForPETTemplate;
     QLabel *_fMRIForPETFileName;
+    QPushButton *_motionCorrectMatchingMRIButton;
+    QPushButton *_motionCorrectPETButton;
 
     // non-GUI variables
     QSettings _savedQSettings;        // needs organization & application name to work (see main.cpp)
@@ -170,13 +172,14 @@ private:
     bool enableDownloadData();
     void reformatAcquisitionTimes(downloadScan scan);
     void updateFileNameBox();
-    void updatePETRunBox();
     void findPETandFMRIOverlap();
 
     QString getDimensions(QString fileName, iPoint4D &dim);
     void getTimeTags(QString fileName, dVector &timeTags, sVector &timeText );
     QString twoDigits(short time);
     dPoint2D petFrameTime(int iFrame);
+    void writeJipCommandFileForMatchingMRI();
+
 
 public:
     MainWindow(QWidget *parent = 0);
@@ -229,7 +232,11 @@ private slots:
     
     void finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus);
     
+    void updatePETRunBox(int indexInBox);
     void changedPETFrameSelection(QListWidgetItem *item);
+    void motionCorrectMatchingMRI();
+//    void motionCorrectPET();
+    void finishedMotionCorrectMatchingMRI(int exitCode, QProcess::ExitStatus exitStatus);
 
 };
 
