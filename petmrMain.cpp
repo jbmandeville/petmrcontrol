@@ -28,10 +28,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     createAnatomyPage();
     createfMRIPage();
     createPETPage();
+    createCleanPage();
     _tabs->addTab(_downLoadPage,  tr("Download"));
     _tabs->addTab(_anatomyPage, tr("Anatomy"));
     _tabs->addTab(_fmriPage, tr("fMRI"));
     _tabs->addTab(_petPage, tr("PET"));
+    _tabs->addTab(_cleanPage, tr("clean up"));
     _tabs->setTabToolTip(0,"Query database and download data");
     _tabs->setTabToolTip(1,"Align anatomy; potentially run freeSurfer;\nClick tab to refresh state");
     connect(_tabs, SIGNAL(tabBarClicked(int)), this, SLOT(changedPage(int)));
@@ -92,6 +94,8 @@ void MainWindow::changedPage(int index)
         openedfMRIPage();
     else if ( index == page_PET )
         openedPETPage();
+    else if ( index == page_clean )
+        refreshCleanPage();
 }
 
 void MainWindow::aboutApp()
@@ -173,7 +177,7 @@ void MainWindow::getTimeTags(QString fileName, dVector &timeTags, sVector &timeT
         QString line = in_stream.readLine();
         QRegExp rx("[,\\s]");// match a comma or a space
         QStringList stringList = line.split(rx, QString::SkipEmptyParts);
-        FUNC_INFO << stringList;
+//        FUNC_INFO << stringList;
         if ( stringList.count() >= 3 )
         {
             double value = stringList.at(1).toDouble();

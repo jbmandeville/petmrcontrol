@@ -63,15 +63,8 @@ void MainWindow::createDownloadPage()
     pageLayout->addWidget(downloadBox);
     _downLoadPage->setLayout(pageLayout);
 
-    QString unpackLog = "unpack.log";
-    QFileInfo checkUnpackLog(unpackLog);
-    if (checkUnpackLog.exists() && checkUnpackLog.isFile())
-        readUnpackLog();
-
-    QString runLog = "scan-list.log";
-    QFileInfo checkRunLog(runLog);
-    if (checkRunLog.exists() && checkRunLog.isFile())
-        readAvailableScanList();
+    readUnpackLog();
+    readAvailableScanList();
 
     QString downFile = "download-list.dat";
     QFileInfo checkDownFile(downFile);
@@ -142,10 +135,7 @@ void MainWindow::generateScanList()
 
 void MainWindow::finishedGeneratingScanList(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    QString runLog = "scan-list.log";
-    QFileInfo checkFile(runLog);
-    if (checkFile.exists() && checkFile.isFile())
-        readAvailableScanList();
+    readAvailableScanList();
     _centralWidget->setEnabled(true);
     _downloadDataButton->setEnabled(enableDownloadData());
     showBrowser(false);
@@ -153,8 +143,13 @@ void MainWindow::finishedGeneratingScanList(int exitCode, QProcess::ExitStatus e
 
 void MainWindow::readAvailableScanList()
 {
+    QString runLog = "scan-list.log";
+    QFileInfo checkRunLog(runLog);
+    if (! (checkRunLog.exists() && checkRunLog.isFile()) )
+        return;
+
     // Read the time model file
-    QFile infile("scan-list.log");
+    QFile infile(runLog);
     if (!infile.open(QIODevice::ReadOnly | QIODevice::Text))
         return;
     _generateScanListButton->setStyleSheet("background-color:lightYellow;");
@@ -239,9 +234,15 @@ void MainWindow::readAvailableScanList()
             FUNC_INFO << "check dirname" << dirname;
             QFileInfo checkDir(dirname);
             if (checkDir.exists() && checkDir.isDir())
+            {
+                scan.existsOnDisk        = true;
                 scan.selectedForDownload = false;
+            }
             else
+            {
+                scan.existsOnDisk        = false;
                 scan.selectedForDownload = true;
+            }
             _scans.append(scan);
         }
     } // while !end
@@ -260,10 +261,9 @@ void MainWindow::readAvailableScanList()
         if ( scan.selectedForDownload )
             _scanItems[jList].setCheckState(Qt::Checked);
         else
-        {
             _scanItems[jList].setCheckState(Qt::Unchecked);
+        if ( scan.existsOnDisk )
             _scanItems[jList].setBackgroundColor(Qt::yellow);
-        }
         _scanItems[jList].setHidden(false);
         _scanItemsBox->addItem(&_scanItems[jList]);
     }
@@ -284,8 +284,13 @@ void MainWindow::changedDownloadScanCheckBox(QListWidgetItem *item)
 void MainWindow::readUnpackLog()
 {
     FUNC_ENTER;
+    QString unpackLog = "unpack.log";
+    QFileInfo checkUnpackLog(unpackLog);
+    if ( !(checkUnpackLog.exists() && checkUnpackLog.isFile()) )
+        return;
+
     // Read the time model file
-    QFile infile("unpack.log");
+    QFile infile(unpackLog);
     if (!infile.open(QIODevice::ReadOnly | QIODevice::Text))
         return;
     QTextStream in_stream(&infile);
@@ -332,7 +337,7 @@ void MainWindow::outputDownloadList()
         if ( scan.selectedForDownload )
         {
             if ( scan.category == category_scout )
-                out << " scout dicom raw.nii \n";
+                out << scan.scanNumber << " scout dicom raw.nii \n";
             else if ( scan.category == category_T1 )
                 out << scan.scanNumber << " t1 dicom raw.nii \n";
             else if ( scan.category == category_EPI )
@@ -378,6 +383,7 @@ void MainWindow::finishedDownloadData(int exitCode, QProcess::ExitStatus exitSta
     for (int jList=0; jList<_scans.size(); jList++)
         reformatAcquisitionTimes(_scans.at(jList));
 
+    readAvailableScanList();
     _centralWidget->setEnabled(true);
     showBrowser(false);
 }

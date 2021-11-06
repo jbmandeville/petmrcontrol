@@ -40,14 +40,22 @@ void MainWindow::createPETPage()
     auto *runsBox = new QGroupBox("PET run to pre-process");
     runsBox->setLayout(setupLayout);
 
-    _motionCorrectMatchingMRIButton = new QPushButton("Create/motion-correct matching MRI");
+    _motionCorrectMatchingMRIButton = new QPushButton("Create matching MRI and motion-correct it");
     _motionCorrectPETButton = new QPushButton("Apply motion-correction to PET");
+    _reslicePETButton = new QPushButton("Reslice PET (after motion-correction)");
+    _alignPETButton = new QPushButton("Align PET time series");
     connect(_motionCorrectMatchingMRIButton, SIGNAL(pressed()), this, SLOT(motionCorrectMatchingMRI()));
-//    connect(_motionCorrectPETButton,         SIGNAL(pressed()), this, SLOT(motionCorrectPET()));
+    connect(_motionCorrectPETButton,         SIGNAL(pressed()), this, SLOT(applyMotionCorrectionToPET()));
+    connect(_reslicePETButton,               SIGNAL(pressed()), this, SLOT(reslicePET()));
+    connect(_alignPETButton,                 SIGNAL(pressed()), this, SLOT(alignPET()));
+    _motionCorrectMatchingMRIButton->setEnabled(false);
+    _motionCorrectPETButton->setEnabled(false);
 
     auto *actionLayout = new QVBoxLayout();
     actionLayout->addWidget(_motionCorrectMatchingMRIButton);
     actionLayout->addWidget(_motionCorrectPETButton);
+    actionLayout->addWidget(_reslicePETButton);
+    actionLayout->addWidget(_alignPETButton);
 
     auto *actionBox = new QGroupBox("Go do stuff");
     actionBox->setLayout(actionLayout);
@@ -95,8 +103,11 @@ void MainWindow::openedPETPage()
 {
     FUNC_ENTER;
 
+    // Make sure anatomy is defined
+    openedAnatomyPage();
+
     QDir const petTopDir("./pet");
-    if (!petTopDir.exists())
+    if ( !petTopDir.exists() )
     {
         _petRunBox->clear();
         return;
@@ -105,7 +116,15 @@ void MainWindow::openedPETPage()
     qInfo() << petFolderList;
     _petRunBox->clear();
     for (int jList=0; jList<petFolderList.size(); jList++)
-        _petRunBox->addItem(petFolderList.at(jList));
+    {
+        bool foundNII = false;
+        QString fileName = petTopDir.absolutePath() + "/" + petFolderList.at(jList) + "/time-tags.txt";
+        QFileInfo checkFile(fileName);
+        if ( checkFile.exists() && checkFile.isFile() )
+            foundNII = true;
+        if ( foundNII )
+            _petRunBox->addItem(petFolderList.at(jList));
+    }
     _petRunBox->setCurrentIndex(_petRunBox->count()-1);
 
     QDir const fMRITopDir("./epi");
@@ -156,7 +175,30 @@ void MainWindow::openedPETPage()
     }
 
     updatePETRunBox(_petRunBox->currentIndex());
+    enablePETActionButtons();
+
     FUNC_EXIT;
+}
+
+void MainWindow::enablePETActionButtons()
+{
+    // enable
+    _motionCorrectMatchingMRIButton->setEnabled( !_fMRIForPETTemplate->text().isEmpty() && _petRunBox->count() > 0);
+    _motionCorrectPETButton->setEnabled(_petRunBox->count() > 0 && PETFileExists("mc.dat"));
+    _reslicePETButton->setEnabled(PETFileExists("mc.nii"));
+    _alignPETButton->setEnabled(PETFileExists("reslice.nii") && anatomyFileExists("align.com"));
+
+    FUNC_INFO << "***" << PETFileExists("reslice.nii") << anatomyFileExists("align.com");
+
+    // highlight
+    if ( _petRunBox->count() > 0 && PETFileExists("mc.dat") )
+        _motionCorrectMatchingMRIButton->setStyleSheet("background-color:lightYellow;");
+    if ( PETFileExists("mc.nii") || PETFileExists("reslice.nii") || PETFileExists("align.nii") )
+        _motionCorrectPETButton->setStyleSheet("background-color:lightYellow;");
+    if ( PETFileExists("reslice.nii") )
+        _reslicePETButton->setStyleSheet("background-color:lightYellow;");
+    if ( PETFileExists("align.nii") )
+        _alignPETButton->setStyleSheet("background-color:lightYellow;");
 }
 
 void MainWindow::updatePETRunBox(int indexInBox)
@@ -229,6 +271,7 @@ void MainWindow::findPETandFMRIOverlap()
 
 void MainWindow::motionCorrectMatchingMRI()
 {
+    FUNC_ENTER;
     // First write the jip command file to create the matching MRI volume
     writeJipCommandFileForMatchingMRI();
 
@@ -239,22 +282,57 @@ void MainWindow::motionCorrectMatchingMRI()
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedMotionCorrectMatchingMRI(int, QProcess::ExitStatus)));
     process->setProcessChannelMode(QProcess::MergedChannels);
 
-    QString exe = _scriptDirectory + "motionCorrectMatchingEPI.csh";
+    QString exe = _scriptDirectory + "createMatchingEPIandMCForPET.csh";
     QStringList arguments;
     // arguments: [EPI MC template dir] [pet dir]
-    arguments.append(_fMRITemplateDirectoryBox->currentText());
+    arguments.append(_fMRIForPETTemplate->text());
     arguments.append(_petRunBox->currentText());
     qInfo() <<  exe << arguments;
     process->start(exe,arguments);
     _centralWidget->setEnabled(false);
+    FUNC_EXIT;
 }
 void MainWindow::finishedMotionCorrectMatchingMRI(int exitCode, QProcess::ExitStatus exitStatus)
 {
+    FUNC_ENTER;
+    enablePETActionButtons();
+
+    // Is interpolation required?
     _centralWidget->setEnabled(true);
     showBrowser(false);
 }
+void MainWindow::applyMotionCorrectionToPET()
+{
+    FUNC_ENTER;
+
+    auto *process = new QProcess;
+    _outputBrowser->setWindowTitle("Apply motion correction to PET");
+    showBrowser(true);
+    QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedApplyingMCToPET(int, QProcess::ExitStatus)));
+    process->setProcessChannelMode(QProcess::MergedChannels);
+
+    QString exe = _scriptDirectory + "applyMCToPET.csh";
+    QStringList arguments;
+    // arguments: [pet dir] [mc file name]
+    arguments.append(_petRunBox->currentText());
+    arguments.append("mc.dat");
+    qInfo() <<  exe << arguments;
+    process->start(exe,arguments);
+    _centralWidget->setEnabled(false);
+    FUNC_EXIT;
+}
+void MainWindow::finishedApplyingMCToPET(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    FUNC_ENTER;
+    enablePETActionButtons();
+    _centralWidget->setEnabled(true);
+    showBrowser(false);
+}
+
 void MainWindow::writeJipCommandFileForMatchingMRI()
 {
+    FUNC_ENTER;
     QString fileName = "pet/" + _petRunBox->currentText() + "/jip-createMRI.com";
     QFile file(fileName);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
@@ -307,4 +385,87 @@ void MainWindow::writeJipCommandFileForMatchingMRI()
     }
     out << "bye\n";
     file.close();
+}
+
+bool MainWindow::getPETMCInterpolationRequired()
+{
+    bool interpolationRequired = false;
+    // Find all required epi runs; all vectors below contains indices into the list of runs _fMRIFilesForPETMC
+    for (int jFrame=0; jFrame<_matchingEPI.size(); jFrame++)
+        interpolationRequired |=  _matchingEPI[jFrame].size() == 0;
+}
+
+bool MainWindow::PETFileExists(QString fileName)
+{
+    bool fileExists = false;
+    QString fullName = "pet/" + _petRunBox->currentText() + "/" + fileName;
+    QFileInfo checkFile(fullName);
+    if ( checkFile.exists() && checkFile.isFile() )
+         fileExists = true;
+    return fileExists;
+}
+
+void MainWindow::reslicePET()
+{
+    FUNC_ENTER;
+    auto *process = new QProcess;
+    _centralWidget->setEnabled(false);
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMReslicePET(int, QProcess::ExitStatus)));
+
+    QStringList arguments;
+    arguments.append("-O");
+    arguments.append("reslice");
+    arguments.append("-a");
+    QString templateFileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/" + _anatomyFileNameBox->currentText();
+    arguments.append(templateFileName);
+    arguments.append("--preprocess");
+    arguments.append("reslice");
+    arguments.append("--output-file");
+    arguments.append("reslice");
+    arguments.append("--quit");
+    QString mcFileName = "pet/" + _petRunBox->currentText() + "/mc.nii";
+    arguments.append(mcFileName);
+    FUNC_INFO << _fastmapProcess << arguments;
+    process->start(_fastmapProcess,arguments);
+
+    FUNC_EXIT;
+}
+void MainWindow::alignPET()
+{
+    FUNC_ENTER;
+    auto *process = new QProcess;
+    _centralWidget->setEnabled(false);
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMAlignPET(int, QProcess::ExitStatus)));
+
+    QStringList arguments;
+    QString mcFileName = "pet/" + _petRunBox->currentText() + "/reslice.nii";
+    arguments.append(mcFileName);
+    arguments.append("-O");
+    arguments.append("alignment");
+    arguments.append("-T");
+    arguments.append(_anatomyTemplateDirectory->currentText());
+    // alignment file name
+    QString alignmentFile = "./t1/" + _anatomyInputDirectoryBox->currentText() + "/align.com";
+    arguments.append("-I");
+    arguments.append(alignmentFile);
+
+    qInfo() << _fastmapProcess << arguments;
+    process->start(_fastmapProcess,arguments);
+
+    FUNC_EXIT;
+}
+
+void MainWindow::finishedFMReslicePET(int exitCode, QProcess::ExitStatus exitStatus )
+{
+    FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
+    enablePETActionButtons();
+    _centralWidget->setEnabled(true);
+    showBrowser(false);
+}
+void MainWindow::finishedFMAlignPET(int exitCode, QProcess::ExitStatus exitStatus )
+{
+    FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
+    enablePETActionButtons();
+    _centralWidget->setEnabled(true);
+    showBrowser(false);
 }

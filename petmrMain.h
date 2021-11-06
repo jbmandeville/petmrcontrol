@@ -50,7 +50,8 @@ private:
         page_download,
         page_anatomy,
         page_fMRI,
-        page_PET
+        page_PET,
+        page_clean
     };
     enum scanCategory
     {
@@ -84,6 +85,7 @@ private:
         iPoint4D dim;
         scanCategory category;
         QString categoryName;
+        bool existsOnDisk;
         bool selectedForDownload;
     };
 
@@ -94,6 +96,7 @@ private:
     QWidget *_anatomyPage;
     QWidget *_fmriPage;
     QWidget *_petPage;
+    QWidget *_cleanPage;
     QStatusBar *_statusBar;
     QAction *_browserAction;
 
@@ -116,11 +119,11 @@ private:
     QComboBox *_anatomyInputDirectoryBox; // "003 004"
     QLineEdit *_subjectIDFreeSurfer;
     QComboBox *_anatomyFileNameBox;       // "raw.nii or "brain.nii"
-    QLabel *_freeSurferInputFile;      // "t1/004/raw.nii"
-    QLabel *_anatomyInputFile;         // "t1/004/brain.nii"
+    QLabel *_freeSurferInputFile;         // "t1/004/raw.nii"
+    QLabel *_anatomyInputFile;            // "t1/004/brain.nii"
     QComboBox *_anatomyTemplateDirectory; // multi-subject template directory
     QPushButton *_runFreeSurferButton;
-    QPushButton *_alignAnatomyToTemplateButton;
+    QPushButton *_alignAnatomyButton;
     QGroupBox *_freeSurferGroupBox;
     QGroupBox *_anatomyInputBox;
     QGroupBox *_anatomyAlignmentBox;
@@ -144,6 +147,8 @@ private:
     QLabel *_fMRIForPETFileName;
     QPushButton *_motionCorrectMatchingMRIButton;
     QPushButton *_motionCorrectPETButton;
+    QPushButton *_reslicePETButton;
+    QPushButton *_alignPETButton;
 
     // non-GUI variables
     QSettings _savedQSettings;        // needs organization & application name to work (see main.cpp)
@@ -159,12 +164,13 @@ private:
     void createAnatomyPage();
     void createfMRIPage();
     void createPETPage();
+    void createCleanPage();
     void openedAnatomyPage();
     void openedfMRIPage();
     void openedPETPage();
+    void refreshCleanPage();
     void readQSettings();
     void writeQSettings();
-    void enableEPIActionButtons();
     void outputDownloadList();
     void getSubjectNameFromFreeDir();
     void readAvailableScanList();
@@ -179,7 +185,15 @@ private:
     QString twoDigits(short time);
     dPoint2D petFrameTime(int iFrame);
     void writeJipCommandFileForMatchingMRI();
+    bool getPETMCInterpolationRequired();
+    bool anatomyFileExists(QString fileName);
+    bool PETFileExists(QString fileName);
 
+    void enableEPIActionButtons();
+    void enableAnatomyActionButtons();
+    void enablePETActionButtons();
+
+    void findDICOMs();
 
 public:
     MainWindow(QWidget *parent = 0);
@@ -219,6 +233,8 @@ private slots:
     void changedPage(int index);
     void alignAnatomyToTemplate();
     void finishedFMAnatomyAlignment(int exitCode, QProcess::ExitStatus exitStatus );
+    void runFreeSurfer();
+    void finishedRunFreeSurfer(int exitCode, QProcess::ExitStatus exitStatus );
 
     void resliceEPI();
     void motionCorrectEPI();
@@ -235,8 +251,13 @@ private slots:
     void updatePETRunBox(int indexInBox);
     void changedPETFrameSelection(QListWidgetItem *item);
     void motionCorrectMatchingMRI();
-//    void motionCorrectPET();
+    void applyMotionCorrectionToPET();
+    void reslicePET();
+    void alignPET();
     void finishedMotionCorrectMatchingMRI(int exitCode, QProcess::ExitStatus exitStatus);
+    void finishedApplyingMCToPET(int exitCode, QProcess::ExitStatus exitStatus);
+    void finishedFMReslicePET(int exitCode, QProcess::ExitStatus exitStatus );
+    void finishedFMAlignPET(int exitCode, QProcess::ExitStatus exitStatus );
 
 };
 

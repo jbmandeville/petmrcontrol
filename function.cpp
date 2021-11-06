@@ -146,7 +146,7 @@ void MainWindow::openedfMRIPage()
     // For the first selection, show all NIFTI files
     _fMRITemplateDirectoryBox->setCurrentIndex(iTemplate);
     updateFileNameBox();
-    changefMRITemplateDirectory(iTemplate);
+    changefMRITemplateDirectory(_fMRITemplateDirectoryBox->currentIndex());
 
     enableEPIActionButtons();
 
@@ -198,6 +198,7 @@ void MainWindow::updateFileNameBox()
 
 void MainWindow::changedfMRIFileName(int indexInBox)
 {
+    FUNC_ENTER;
     QDir const fMRITopDir("./epi/");
     if (!fMRITopDir.exists())
     {
@@ -225,7 +226,6 @@ void MainWindow::changedfMRIFileName(int indexInBox)
     }
 
     FUNC_INFO << "resize to" << nFiles;
-    _fMRIRunItemBox->clear();
     _fMRIRunItems.resize(nFiles);
     _fMRIFiles.resize(nFiles);
     nFiles=0;
@@ -236,10 +236,12 @@ void MainWindow::changedfMRIFileName(int indexInBox)
         QString tagsName = "epi/" + folderList.at(jList) + "/time-tags.txt";
         QString text = getDimensions(file.name, file.dim);
         getTimeTags(tagsName,file.timeTags,file.timeText);
+        FUNC_INFO << "jList" << jList << "file" << file.name;
         if ( file.dim.z != 0 )
         {
             FUNC_INFO << "add fmri file" << folderList.at(jList) << text;
             QListWidgetItem item;
+
             item.setText(folderList.at(jList) + " :    " + text);
             item.setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
             item.setCheckState(Qt::Checked);
@@ -255,8 +257,8 @@ void MainWindow::changedfMRIFileName(int indexInBox)
         }
     }
 
-
     FUNC_INFO << "_fMRIFiles size" << _fMRIFiles.size();
+    changefMRITemplateDirectory(_fMRITemplateDirectoryBox->currentIndex());
 
     enableEPIActionButtons();
     FUNC_EXIT;
@@ -326,6 +328,8 @@ void MainWindow::resliceEPI()
 void MainWindow::finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitStatus )
 {
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
+
+    updateFileNameBox();
 
     QString exe = _scriptDirectory + "linkNonReslicedRaws.csh";
     QStringList arguments;

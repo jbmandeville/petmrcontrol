@@ -21,7 +21,8 @@ SOURCES += main.cpp\
         function.cpp \
         petmrMain.cpp \
         utilio.cpp \
-    pet.cpp
+    pet.cpp \
+    clean.cpp
 
 HEADERS  += petmrMain.h \
     ImageIO.h \

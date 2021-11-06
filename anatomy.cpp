@@ -30,7 +30,7 @@ void MainWindow::createAnatomyPage()
     setupFreeSurferLayout->addWidget(_freeSurferInputFile,1,1);
 
     _runFreeSurferButton       = new QPushButton("Run FreeSurfer",_downLoadPage);
-//    connect(_runFreeSurferButton, SIGNAL(pressed()), this, SLOT(runFreeSurfer()));
+    connect(_runFreeSurferButton, SIGNAL(pressed()), this, SLOT(runFreeSurfer()));
 
     auto *freeSurferLayout = new QVBoxLayout();
     freeSurferLayout->addLayout(setupFreeSurferLayout);
@@ -65,11 +65,11 @@ void MainWindow::createAnatomyPage()
     anatomyFileLayout->setSpacing(0);
 
     auto *anatomyAlignmentLayout = new QVBoxLayout();
-    _alignAnatomyToTemplateButton  = new QPushButton("Align to template",_anatomyPage);
-    connect(_alignAnatomyToTemplateButton, SIGNAL(pressed()), this, SLOT(alignAnatomyToTemplate()));
+    _alignAnatomyButton  = new QPushButton("Align to template",_anatomyPage);
+    connect(_alignAnatomyButton, SIGNAL(pressed()), this, SLOT(alignAnatomyToTemplate()));
 
     anatomyAlignmentLayout->addLayout(anatomyFileLayout);
-    anatomyAlignmentLayout->addWidget(_alignAnatomyToTemplateButton);
+    anatomyAlignmentLayout->addWidget(_alignAnatomyButton);
 
     _anatomyAlignmentBox = new QGroupBox("Use fastmap to align anatomy to a multi-subject template");
     _anatomyAlignmentBox->setLayout(anatomyAlignmentLayout);
@@ -100,12 +100,10 @@ void MainWindow::getSubjectNameFromFreeDir()
     {
         _subjectIDDownload->setText(folderList.at(0));
         _subjectIDFreeSurfer->setText(folderList.at(0));
-        _freeSurferGroupBox->setEnabled(false);
         _queryDownloadGroupBox->setEnabled(false);
-        _anatomyAlignmentBox->setStyleSheet("background-color:lightYellow;");
-        _freeSurferGroupBox->setStyleSheet("background-color:lightYellow;");
         setWindowTitle(QString("petmrcontrol: %1").arg(_subjectIDFreeSurfer->text()));
     }
+    enableAnatomyActionButtons();
 }
 
 void MainWindow::openedAnatomyPage()
@@ -140,13 +138,7 @@ void MainWindow::openedAnatomyPage()
         if ( fileList.at(jList) == "raw.nii")   indexRaw   = jList;
     }
     if ( indexBrain >= 0 )
-    {
         _anatomyFileNameBox->setCurrentIndex(indexBrain);
-        _anatomyInputBox->setEnabled(false);
-        _anatomyAlignmentBox->setEnabled(false);
-        _anatomyInputBox->setStyleSheet("background-color:lightYellow;");
-        _anatomyAlignmentBox->setStyleSheet("background-color:lightYellow;");
-    }
     else if ( indexRaw >= 0 )
         _anatomyFileNameBox->setCurrentIndex(indexRaw);
     else
@@ -160,11 +152,7 @@ void MainWindow::openedAnatomyPage()
     _anatomyInputFile->setText(fileName);
 
     // Enable/disable:  // if anatomy file was found, it can be used for either freeSurfer or alignment
-    bool enable = _anatomyFileNameBox->count() > 0;
-    _runFreeSurferButton->setEnabled(enable);
-    fileName = _anatomyTemplateDirectory->currentText();
-//    enable &= fileName.compare("unknown",Qt::CaseInsensitive);
-    _alignAnatomyToTemplateButton->setEnabled(enable);
+    enableAnatomyActionButtons();
 }
 
 void MainWindow::alignAnatomyToTemplate()
@@ -180,6 +168,10 @@ void MainWindow::alignAnatomyToTemplate()
     arguments.append("alignment");
     arguments.append("-T");
     arguments.append(_anatomyTemplateDirectory->currentText());
+    arguments.append("--output-file");
+    arguments.append("align");
+    arguments.append("--output-file");
+    arguments.append("align");
     qInfo() << _fastmapProcess << arguments;
     process->start(_fastmapProcess,arguments);
 
@@ -190,4 +182,59 @@ void MainWindow::finishedFMAnatomyAlignment(int exitCode, QProcess::ExitStatus e
 {
     qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
     _centralWidget->setEnabled(true);
+}
+
+bool MainWindow::anatomyFileExists(QString fileName)
+{
+    bool fileExists = false;
+    QString fullName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/" + fileName;
+    FUNC_INFO << "check file" << fullName;
+    QFileInfo checkFile(fullName);
+    if ( checkFile.exists() && checkFile.isFile() )
+         fileExists = true;
+    return fileExists;
+}
+
+void MainWindow::enableAnatomyActionButtons()
+{
+    QString fileName = _anatomyFileNameBox->currentText();
+    bool fileIsBrain = ! fileName.compare("brain.nii");
+    _alignAnatomyButton->setEnabled(fileIsBrain);
+
+    fileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/align.nii";
+    QFileInfo checkFile(fileName);
+    if ( checkFile.exists() && checkFile.isFile() )
+        _alignAnatomyButton->setStyleSheet("background-color:lightYellow;");
+
+    QString freeDir = "free";
+    QFileInfo checkDir(freeDir);
+    if ( checkDir.exists() && checkDir.isDir() )
+        _runFreeSurferButton->setStyleSheet("background-color:lightYellow;");
+}
+
+void MainWindow::runFreeSurfer()
+{
+    FUNC_ENTER;
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, "Subject name OK?", "Run freeSurfer (this takes hours)?",
+                                  QMessageBox::Yes|QMessageBox::No);
+    if (reply == QMessageBox::Yes)
+    {
+        auto *process = new QProcess;
+        _centralWidget->setEnabled(false);
+        connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
+                this, SLOT(finishedRunFreeSurfer(int, QProcess::ExitStatus)));
+
+        QString exe = _scriptDirectory + "runFreeSurfer.csh";
+        QStringList arguments;
+        arguments.append(_anatomyInputDirectoryBox->currentText());
+        arguments.append(_subjectIDFreeSurfer->text());
+        qInfo() << exe << arguments;
+        process->start(exe,arguments);
+    }
+}
+
+void MainWindow::finishedRunFreeSurfer(int exitCode, QProcess::ExitStatus exitStatus )
+{
+
 }
