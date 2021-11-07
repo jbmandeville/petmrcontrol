@@ -119,8 +119,6 @@ private:
     QComboBox *_anatomyInputDirectoryBox; // "003 004"
     QLineEdit *_subjectIDFreeSurfer;
     QComboBox *_anatomyFileNameBox;       // "raw.nii or "brain.nii"
-    QLabel *_freeSurferInputFile;         // "t1/004/raw.nii"
-    QLabel *_anatomyInputFile;            // "t1/004/brain.nii"
     QComboBox *_anatomyTemplateDirectory; // multi-subject template directory
     QPushButton *_runFreeSurferButton;
     QPushButton *_alignAnatomyButton;
@@ -149,6 +147,8 @@ private:
     QPushButton *_motionCorrectPETButton;
     QPushButton *_reslicePETButton;
     QPushButton *_alignPETButton;
+    QString _anatomyFileNameForPETReslice;
+    QString _alignFileNameForPETRegistration;
 
     // non-GUI variables
     QSettings _savedQSettings;        // needs organization & application name to work (see main.cpp)
@@ -218,6 +218,8 @@ private slots:
         else
             _outputBrowser->hide();
     }
+    inline void changedAnatomyFileName(int indexInBox) {enableAnatomyActionButtons();}
+    void changedAnatomyDirName(int indexInBox);
 
     inline void changedDownloadIDBox(int indexInBox)   {_downloadPathBox->setCurrentIndex(indexInBox);}
     inline void changedDownloadPathBox(int indexInBox) {_downloadIDBox->setCurrentIndex(indexInBox);}

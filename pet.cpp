@@ -27,37 +27,39 @@ void MainWindow::createPETPage()
     _fMRIForPETTemplate = new QLabel("");
     _fMRIForPETFileName = new QLabel("");
 
-    auto *fileLayout = new QGridLayout();
-    fileLayout->addWidget(templateLabel,0,0);
-    fileLayout->addWidget(_fMRIForPETTemplate,0,1);
-    fileLayout->addWidget(fileLabel,1,0);
-    fileLayout->addWidget(_fMRIForPETFileName,1,1);
+    _motionCorrectMatchingMRIButton = new QPushButton("Create matching MRI and motion-correct it");
+    _motionCorrectMatchingMRIButton->setEnabled(false);
+    connect(_motionCorrectMatchingMRIButton, SIGNAL(pressed()), this, SLOT(motionCorrectMatchingMRI()));
+
+    _motionCorrectPETButton = new QPushButton("Apply motion-correction to PET (raw -->mc)");
+    connect(_motionCorrectPETButton,         SIGNAL(pressed()), this, SLOT(applyMotionCorrectionToPET()));
+
+    auto *fMRILayout = new QGridLayout();
+    fMRILayout->addWidget(templateLabel,0,0);
+    fMRILayout->addWidget(_fMRIForPETTemplate,0,1);
+    fMRILayout->addWidget(fileLabel,1,0);
+    fMRILayout->addWidget(_fMRIForPETFileName,1,1);
 
     auto *setupLayout = new QVBoxLayout();
     setupLayout->addLayout(runLayout);
-    setupLayout->addLayout(fileLayout);
+    setupLayout->addLayout(fMRILayout);
+    setupLayout->addWidget(_motionCorrectMatchingMRIButton);
+    setupLayout->addWidget(_motionCorrectPETButton);
 
-    auto *runsBox = new QGroupBox("PET run to pre-process");
+    auto *runsBox = new QGroupBox("Motion-correct PET using EPI");
     runsBox->setLayout(setupLayout);
 
-    _motionCorrectMatchingMRIButton = new QPushButton("Create matching MRI and motion-correct it");
-    _motionCorrectPETButton = new QPushButton("Apply motion-correction to PET");
-    _reslicePETButton = new QPushButton("Reslice PET (after motion-correction)");
-    _alignPETButton = new QPushButton("Align PET time series");
-    connect(_motionCorrectMatchingMRIButton, SIGNAL(pressed()), this, SLOT(motionCorrectMatchingMRI()));
-    connect(_motionCorrectPETButton,         SIGNAL(pressed()), this, SLOT(applyMotionCorrectionToPET()));
+    _reslicePETButton = new QPushButton("Reslice PET (mc -->reslice)");
+    _alignPETButton = new QPushButton("Align PET time series (reslice --> align)");
     connect(_reslicePETButton,               SIGNAL(pressed()), this, SLOT(reslicePET()));
     connect(_alignPETButton,                 SIGNAL(pressed()), this, SLOT(alignPET()));
-    _motionCorrectMatchingMRIButton->setEnabled(false);
     _motionCorrectPETButton->setEnabled(false);
 
     auto *actionLayout = new QVBoxLayout();
-    actionLayout->addWidget(_motionCorrectMatchingMRIButton);
-    actionLayout->addWidget(_motionCorrectPETButton);
     actionLayout->addWidget(_reslicePETButton);
     actionLayout->addWidget(_alignPETButton);
 
-    auto *actionBox = new QGroupBox("Go do stuff");
+    auto *actionBox = new QGroupBox("Align PET to template using MRI");
     actionBox->setLayout(actionLayout);
 
     auto *pageLayout = new QVBoxLayout();
@@ -182,6 +184,23 @@ void MainWindow::openedPETPage()
 
 void MainWindow::enablePETActionButtons()
 {
+    QString templateFileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/brain.nii";
+    QFileInfo checkBrain(templateFileName);
+    if ( checkBrain.exists() && checkBrain.isFile() )
+        _anatomyFileNameForPETReslice = templateFileName;
+    else
+    {
+        templateFileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/raw.nii";
+        QFileInfo checkRaw(templateFileName);
+        if ( checkRaw.exists() && checkRaw.isFile() )
+            _anatomyFileNameForPETReslice = templateFileName;
+    }
+    _reslicePETButton->setText(QString("Reslice PET (mc -->reslice) using %1").arg(_anatomyFileNameForPETReslice));\
+
+    _alignFileNameForPETRegistration = "t1/" + _anatomyInputDirectoryBox->currentText() + "/align.com";
+    _alignPETButton->setText(QString("Align PET time series (reslice --> align) using %1")
+                             .arg(_alignFileNameForPETRegistration));
+
     // enable
     _motionCorrectMatchingMRIButton->setEnabled( !_fMRIForPETTemplate->text().isEmpty() && _petRunBox->count() > 0);
     _motionCorrectPETButton->setEnabled(_petRunBox->count() > 0 && PETFileExists("mc.dat"));
@@ -199,6 +218,7 @@ void MainWindow::enablePETActionButtons()
         _reslicePETButton->setStyleSheet("background-color:lightYellow;");
     if ( PETFileExists("align.nii") )
         _alignPETButton->setStyleSheet("background-color:lightYellow;");
+
 }
 
 void MainWindow::updatePETRunBox(int indexInBox)
@@ -416,7 +436,7 @@ void MainWindow::reslicePET()
     arguments.append("-O");
     arguments.append("reslice");
     arguments.append("-a");
-    QString templateFileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/" + _anatomyFileNameBox->currentText();
+    QString templateFileName = _anatomyFileNameForPETReslice;
     arguments.append(templateFileName);
     arguments.append("--preprocess");
     arguments.append("reslice");
@@ -445,9 +465,11 @@ void MainWindow::alignPET()
     arguments.append("-T");
     arguments.append(_anatomyTemplateDirectory->currentText());
     // alignment file name
-    QString alignmentFile = "./t1/" + _anatomyInputDirectoryBox->currentText() + "/align.com";
+    arguments.append("--preprocess");
+    arguments.append("align");
+    arguments.append("--quit");
     arguments.append("-I");
-    arguments.append(alignmentFile);
+    arguments.append(_alignFileNameForPETRegistration);
 
     qInfo() << _fastmapProcess << arguments;
     process->start(_fastmapProcess,arguments);

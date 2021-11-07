@@ -37,10 +37,11 @@ void MainWindow::createfMRIPage()
 
     auto *runsBox = new QGroupBox("List of EPI runs to include in analysis");
     runsBox->setLayout(setupLayout);
+//    runsBox->setStyleSheet("border: 1px dotted gray");
 
-    _resliceEPIButton       = new QPushButton("reslice runs as necessary",_anatomyPage);
-    _motionCorrectEPIButton = new QPushButton("motion-correct runs",_anatomyPage);
-    _alignEPIButton         = new QPushButton("Align to template",_anatomyPage);
+    _resliceEPIButton       = new QPushButton("reslice runs as necessary (raw --> reslice)",_anatomyPage);
+    _motionCorrectEPIButton = new QPushButton("motion-correct runs (raw/reslice -->mc)",_anatomyPage);
+    _alignEPIButton         = new QPushButton("Align to template (raw/reslice/mc -> align)",_anatomyPage);
     connect(_resliceEPIButton,       SIGNAL(pressed()), this, SLOT(resliceEPI()));
     connect(_motionCorrectEPIButton, SIGNAL(pressed()), this, SLOT(motionCorrectEPI()));
     connect(_alignEPIButton,         SIGNAL(pressed()), this, SLOT(alignEPI()));
@@ -279,10 +280,12 @@ void MainWindow::enableEPIActionButtons()
         }
     }
     _resliceEPIButton->setEnabled(!allSameDimension);
-    bool selectMC = !_fMRIFileNameBox->currentText().compare("mc.nii");
-    _motionCorrectEPIButton->setEnabled(allSameDimension && !selectMC);
+    bool selectRaw     = !_fMRIFileNameBox->currentText().compare("raw.nii");
+    bool selectReslice = !_fMRIFileNameBox->currentText().compare("reslice.nii");
+    bool selectMC      = !_fMRIFileNameBox->currentText().compare("mc.nii");
+    _motionCorrectEPIButton->setEnabled(allSameDimension && (selectRaw || selectReslice));
+    _alignEPIButton->setEnabled(allSameDimension && (selectRaw || selectReslice || selectMC));
 
-    _alignEPIButton->setEnabled(allSameDimension);
     FUNC_EXIT << allSameDimension;
 }
 

@@ -10,26 +10,31 @@ void MainWindow::createAnatomyPage()
     // input directory
     ////////////////////////////////////////////////
     auto *anatDirLabel = new QLabel("Sub-directory on 't1'");
+    auto *anatInputFileLabel  = new QLabel("Input file: ",_anatomyPage);
     auto *inputLayout = new QGridLayout();
     _anatomyInputDirectoryBox = new QComboBox();
+    _anatomyFileNameBox  = new QComboBox();
+    connect(_anatomyInputDirectoryBox, SIGNAL(activated(int)),this, SLOT(changedAnatomyDirName(int)));
+    connect(_anatomyFileNameBox, SIGNAL(activated(int)),this, SLOT(changedAnatomyFileName(int)));
+
     inputLayout->addWidget(anatDirLabel,0,0);
     inputLayout->addWidget(_anatomyInputDirectoryBox,0,1);
+    inputLayout->addWidget(anatInputFileLabel,1,0);
+    inputLayout->addWidget(_anatomyFileNameBox,1,1);
+
     _anatomyInputBox = new QGroupBox("Input directory for anatomy");
     _anatomyInputBox->setLayout(inputLayout);
+    _anatomyInputBox->setStyleSheet("border: 1px dotted gray");
 
     ////////////////////////////////////////////////
     // freeSurfer
     ////////////////////////////////////////////////
     auto *subjectIDLabel     = new QLabel("Subject ID",_anatomyPage);
-    auto *freeInputFileLabel = new QLabel("Input file",_anatomyPage);
     _subjectIDFreeSurfer     = new QLineEdit("?");
-    _freeSurferInputFile     = new QLabel();
     setupFreeSurferLayout->addWidget(subjectIDLabel,0,0);
     setupFreeSurferLayout->addWidget(_subjectIDFreeSurfer,0,1);
-    setupFreeSurferLayout->addWidget(freeInputFileLabel,1,0);
-    setupFreeSurferLayout->addWidget(_freeSurferInputFile,1,1);
 
-    _runFreeSurferButton       = new QPushButton("Run FreeSurfer",_downLoadPage);
+    _runFreeSurferButton       = new QPushButton("Run FreeSurfer (raw --> brain)",_downLoadPage);
     connect(_runFreeSurferButton, SIGNAL(pressed()), this, SLOT(runFreeSurfer()));
 
     auto *freeSurferLayout = new QVBoxLayout();
@@ -37,16 +42,13 @@ void MainWindow::createAnatomyPage()
     freeSurferLayout->addWidget(_runFreeSurferButton);
     freeSurferLayout->setSpacing(0);
 
-    _freeSurferGroupBox = new QGroupBox("Run FreeSurfer to delineate anatomy (takes HOURS)");
+    _freeSurferGroupBox = new QGroupBox("Run FreeSurfer to delineate anatomy (TAKES HOURS)");
     _freeSurferGroupBox->setLayout(freeSurferLayout);
 
     ////////////////////////////////////////////////
     // anatomy registration
     ////////////////////////////////////////////////
-    auto *anatInputFileLabel  = new QLabel("Input file: ",_anatomyPage);
     auto *templateDirLabel    = new QLabel("Template directory: ",_anatomyPage);
-    _anatomyFileNameBox       = new QComboBox();
-    _anatomyInputFile         = new QLabel("Input file = ?");
     _anatomyTemplateDirectory = new QComboBox();
     int iSelection = 0;
     for (int jList=0; jList<_FastmapMSTemplateDirectories.count(); jList+=2)
@@ -58,14 +60,12 @@ void MainWindow::createAnatomyPage()
     _anatomyTemplateDirectory->setCurrentIndex(iSelection);
 
     auto *anatomyFileLayout = new QGridLayout();
-    anatomyFileLayout->addWidget(anatInputFileLabel,0,0);
-    anatomyFileLayout->addWidget(_anatomyFileNameBox,0,1);
-    anatomyFileLayout->addWidget(templateDirLabel,1,0);
-    anatomyFileLayout->addWidget(_anatomyTemplateDirectory,1,1);
+    anatomyFileLayout->addWidget(templateDirLabel,0,0);
+    anatomyFileLayout->addWidget(_anatomyTemplateDirectory,0,1);
     anatomyFileLayout->setSpacing(0);
 
     auto *anatomyAlignmentLayout = new QVBoxLayout();
-    _alignAnatomyButton  = new QPushButton("Align to template",_anatomyPage);
+    _alignAnatomyButton  = new QPushButton("Align to template (raw/brain --> align)",_anatomyPage);
     connect(_alignAnatomyButton, SIGNAL(pressed()), this, SLOT(alignAnatomyToTemplate()));
 
     anatomyAlignmentLayout->addLayout(anatomyFileLayout);
@@ -73,6 +73,7 @@ void MainWindow::createAnatomyPage()
 
     _anatomyAlignmentBox = new QGroupBox("Use fastmap to align anatomy to a multi-subject template");
     _anatomyAlignmentBox->setLayout(anatomyAlignmentLayout);
+    _anatomyAlignmentBox->setStyleSheet("border: 1px dotted gray");
 
     QString freeDir = "free";
     QFileInfo checkDir(freeDir);
@@ -123,34 +124,26 @@ void MainWindow::openedAnatomyPage()
         _anatomyInputDirectoryBox->addItem(folderList.at(jList));
     _anatomyInputDirectoryBox->setCurrentIndex(_anatomyInputDirectoryBox->count()-1);
 
+    changedAnatomyDirName(_anatomyInputDirectoryBox->currentIndex());
+}
+
+void MainWindow::changedAnatomyDirName(int indexInBox)
+{
     // For the current selection, show all NIFTI files
-    QString path = "./t1/" + _anatomyInputDirectoryBox->currentText();
+    QString path = "./t1/" + _anatomyInputDirectoryBox->itemText(indexInBox);
     QDir anatomyDir(path);
     anatomyDir.setNameFilters(QStringList()<<"*.nii");
     QStringList fileList = anatomyDir.entryList();
 
     _anatomyFileNameBox->clear();
-    int indexRaw=-1;  int indexBrain=-1;
+    int indexRaw=-1;  int indexBrain=-1;  int indexAlign=-1;
     for (int jList=0; jList<fileList.size(); jList++)
     {
         _anatomyFileNameBox->addItem(fileList.at(jList));
+        if ( fileList.at(jList) == "align.nii") indexAlign = jList;
         if ( fileList.at(jList) == "brain.nii") indexBrain = jList;
         if ( fileList.at(jList) == "raw.nii")   indexRaw   = jList;
     }
-    if ( indexBrain >= 0 )
-        _anatomyFileNameBox->setCurrentIndex(indexBrain);
-    else if ( indexRaw >= 0 )
-        _anatomyFileNameBox->setCurrentIndex(indexRaw);
-    else
-        _anatomyFileNameBox->setCurrentIndex(0);
-
-    FUNC_INFO << 2;
-    QString fileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/raw.nii";
-    _freeSurferInputFile->setText(fileName);
-    FUNC_INFO << 3;
-    fileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/" + _anatomyFileNameBox->currentText();
-    _anatomyInputFile->setText(fileName);
-
     // Enable/disable:  // if anatomy file was found, it can be used for either freeSurfer or alignment
     enableAnatomyActionButtons();
 }
@@ -162,8 +155,10 @@ void MainWindow::alignAnatomyToTemplate()
     _centralWidget->setEnabled(false);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMAnatomyAlignment(int, QProcess::ExitStatus)));
 
+    QString inputFileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/" + _anatomyFileNameBox->currentText();
+
     QStringList arguments;
-    arguments.append(_anatomyInputFile->text());
+    arguments.append(inputFileName);
     arguments.append("-O");
     arguments.append("alignment");
     arguments.append("-T");
@@ -198,6 +193,10 @@ bool MainWindow::anatomyFileExists(QString fileName)
 void MainWindow::enableAnatomyActionButtons()
 {
     QString fileName = _anatomyFileNameBox->currentText();
+
+    bool fileIsRaw = ! fileName.compare("raw.nii");
+    _runFreeSurferButton->setEnabled(fileIsRaw);
+
     bool fileIsBrain = ! fileName.compare("brain.nii");
     _alignAnatomyButton->setEnabled(fileIsBrain);
 

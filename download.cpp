@@ -7,7 +7,7 @@ void MainWindow::createDownloadPage()
     _downLoadPage = new QWidget();
 
     auto *queryLayout = new QGridLayout();
-    auto *subjectIDLabel     = new QLabel("Subject ID",_downLoadPage);
+    auto *subjectIDLabel     = new QLabel("Download ID",_downLoadPage);
     _subjectIDDownload   = new QLineEdit("?");
     queryLayout->addWidget(subjectIDLabel,0,0);
     queryLayout->addWidget(_subjectIDDownload,0,1);
@@ -279,6 +279,7 @@ void MainWindow::changedDownloadScanCheckBox(QListWidgetItem *item)
             iSelected = jItem;
     }
     _scans[iSelected].selectedForDownload = _scanItems[iSelected].checkState();
+    _downloadDataButton->setEnabled(enableDownloadData());
 }
 
 void MainWindow::readUnpackLog()
