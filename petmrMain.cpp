@@ -87,7 +87,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
 void MainWindow::changedPage(int index)
 {
-    qInfo() << "enter with index" << index;
     if ( index == page_anatomy )
         openedAnatomyPage();
     else if ( index == page_fMRI )
@@ -95,7 +94,7 @@ void MainWindow::changedPage(int index)
     else if ( index == page_PET )
         openedPETPage();
     else if ( index == page_clean )
-        refreshCleanPage();
+        openedCleanPage();
 }
 
 void MainWindow::aboutApp()

@@ -50,14 +50,17 @@ void MainWindow::createPETPage()
     runsBox->setLayout(setupLayout);
 
     _reslicePETButton = new QPushButton("Reslice PET (mc -->reslice)");
-    _alignPETButton = new QPushButton("Align PET time series (reslice --> align)");
+    _alignPETButton   = new QPushButton("Align PET time series (reslice --> align)");
+    _analyzeTAC       = new QPushButton("Analyze TAC");
     connect(_reslicePETButton,               SIGNAL(pressed()), this, SLOT(reslicePET()));
     connect(_alignPETButton,                 SIGNAL(pressed()), this, SLOT(alignPET()));
+    connect(_analyzeTAC,                     SIGNAL(pressed()), this, SLOT(analyzeTAC()));
     _motionCorrectPETButton->setEnabled(false);
 
     auto *actionLayout = new QVBoxLayout();
     actionLayout->addWidget(_reslicePETButton);
     actionLayout->addWidget(_alignPETButton);
+    actionLayout->addWidget(_analyzeTAC);
 
     auto *actionBox = new QGroupBox("Align PET to template using MRI");
     actionBox->setLayout(actionLayout);
@@ -115,7 +118,7 @@ void MainWindow::openedPETPage()
         return;
     }
     QStringList const petFolderList = petTopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-    qInfo() << petFolderList;
+    FUNC_INFO << petFolderList;
     _petRunBox->clear();
     for (int jList=0; jList<petFolderList.size(); jList++)
     {
@@ -469,7 +472,7 @@ void MainWindow::alignPET()
     arguments.append("align");
     arguments.append("--quit");
     arguments.append("-I");
-    arguments.append(_alignFileNameForPETRegistration);
+    arguments.append(_alignFileNameForPETRegistration);   
 
     qInfo() << _fastmapProcess << arguments;
     process->start(_fastmapProcess,arguments);
@@ -490,4 +493,98 @@ void MainWindow::finishedFMAlignPET(int exitCode, QProcess::ExitStatus exitStatu
     enablePETActionButtons();
     _centralWidget->setEnabled(true);
     showBrowser(false);
+}
+
+void MainWindow::analyzeTAC()
+{
+    FUNC_ENTER;
+
+    // Create a analysis directory on pet ("srtm") and install files
+    installSRTMAnalysis();
+
+    auto *process = new QProcess;
+    _centralWidget->setEnabled(false);
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMAnalyzeTAC(int, QProcess::ExitStatus)));
+
+    QStringList arguments;
+    arguments.append("-t");
+    QString timeFile = "timeModel.dat";
+    arguments.append(timeFile);
+    arguments.append("-O");
+    arguments.append("pet");
+    arguments.append("-T");
+    arguments.append(_anatomyTemplateDirectory->currentText());
+
+    process->setWorkingDirectory("pet/srtm");
+
+    qInfo() << _fastmapProcess << arguments;
+    process->start(_fastmapProcess,arguments);
+
+    FUNC_EXIT;
+}
+void MainWindow::finishedFMAnalyzeTAC(int exitCode, QProcess::ExitStatus exitStatus )
+{
+    FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
+    enablePETActionButtons();
+    _centralWidget->setEnabled(true);
+    showBrowser(false);
+}
+void MainWindow::installSRTMAnalysis()
+{
+    // write the pet frames table to the pet directory
+    writeFramesTable("pet/frames.table");
+
+    // create the directory if needed
+    QString directory = "pet/srtm";
+    QDir dir(directory);
+    if ( !dir.exists() ) dir.mkpath(directory);
+
+    writeTimeModelFile(directory);
+    writeGLMFile(directory);
+}
+void MainWindow::writeFramesTable(QString fileName)
+{
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+    QTextStream out(&file);
+
+    out << "dt\n";
+
+    for (int jFrame=0; jFrame<_petFile.timeTags.size(); jFrame++)
+    {
+        dPoint2D timeFrame = petFrameTime(jFrame);
+        double width = (timeFrame.upper - timeFrame.lower);
+        out << width << "\n";
+    }
+    file.close();
+}
+void MainWindow::writeTimeModelFile(QString directoryName)
+{
+    FUNC_ENTER << directoryName;
+    QString fileName = directoryName + "/timeModel.dat";
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+    QTextStream out(&file);
+
+    out << "time-model SRTM\n";
+    out << "conditions B\n";
+    out << "scans:\n";
+    out << "../"+_petRunBox->currentText()+"/align.nii pet1.glm ../frames.table\n";
+    file.close();
+}
+void MainWindow::writeGLMFile(QString directoryName)
+{
+    FUNC_ENTER << directoryName;
+    QString fileName = directoryName + "/pet1.glm";
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+    QTextStream out(&file);
+
+    out << "R1 1\n\n";
+    out << "k2 a\n\n";
+    out << "k2a B\n";
+    file.close();
 }

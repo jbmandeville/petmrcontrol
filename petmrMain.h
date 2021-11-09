@@ -22,15 +22,10 @@
 // 1) multi-subject template directory (currently qsettings; should be local)
 // 2) smoothing
 //
-// additional variables needed for EPI page
-// - probably not necessary to keep template averaging range (mcTemplate will be kept)
-// - get template directory from mcTemplate.nii
-// - get fMRI run list from location of mc.nii or align.nii
-//
-// PET page needs to know
-// 1) list of EPI runs with times overlapping with PET
-// 2) show PET frames with overlap
-//
+// TO DO:
+// 1) PET page: need to make file type variable (in case "raw.nii" is deleted)
+// 2) EPI page: after reslice, update file list (now have to leave page and go back)
+// 3) anatomy page: update file names after runFreeSurfer
 
 ////////////////////////////////////////////////////
 
@@ -87,6 +82,7 @@ private:
         QString categoryName;
         bool existsOnDisk;
         bool selectedForDownload;
+        bool selectedForCleaning;
     };
 
 
@@ -122,9 +118,6 @@ private:
     QComboBox *_anatomyTemplateDirectory; // multi-subject template directory
     QPushButton *_runFreeSurferButton;
     QPushButton *_alignAnatomyButton;
-    QGroupBox *_freeSurferGroupBox;
-    QGroupBox *_anatomyInputBox;
-    QGroupBox *_anatomyAlignmentBox;
 
     // fMRI page
     QListWidget *_fMRIRunItemBox;
@@ -135,7 +128,6 @@ private:
     QPushButton *_resliceEPIButton;
     QPushButton *_motionCorrectEPIButton;
     QPushButton *_alignEPIButton;
-    QGroupBox *_fMRIActionBox;
 
     // PET page
     QComboBox *_petRunBox;
@@ -143,12 +135,22 @@ private:
     QVector<QListWidgetItem> _petFrameItems;
     QLabel *_fMRIForPETTemplate;
     QLabel *_fMRIForPETFileName;
+    QString _anatomyFileNameForPETReslice;
+    QString _alignFileNameForPETRegistration;
     QPushButton *_motionCorrectMatchingMRIButton;
     QPushButton *_motionCorrectPETButton;
     QPushButton *_reslicePETButton;
     QPushButton *_alignPETButton;
-    QString _anatomyFileNameForPETReslice;
-    QString _alignFileNameForPETRegistration;
+    QPushButton *_analyzeTAC;
+
+    // clean page
+    QListWidget *_cleanScanTypesBox;
+    QVector<QListWidgetItem> _cleanScanTypeItems;
+    QPushButton *_cleanDICOMs;
+    QPushButton *_cleanNII_auxilliary;  // MR*.nii, test.nii, matchingMRI-rs.nii, matchingMRI-mc.nii
+    QPushButton *_cleanNII_reslice_mc;  // reslice.nii, mc.nii
+    QPushButton *_cleanNII_raw;         // raw.nii
+    QLabel *_totalSizeSubDirs;
 
     // non-GUI variables
     QSettings _savedQSettings;        // needs organization & application name to work (see main.cpp)
@@ -168,7 +170,7 @@ private:
     void openedAnatomyPage();
     void openedfMRIPage();
     void openedPETPage();
-    void refreshCleanPage();
+    void openedCleanPage();
     void readQSettings();
     void writeQSettings();
     void outputDownloadList();
@@ -179,6 +181,13 @@ private:
     void reformatAcquisitionTimes(downloadScan scan);
     void updateFileNameBox();
     void findPETandFMRIOverlap();
+    void setupScanTypes();
+    void updateCleaningList();
+    void updateAnatomyFileName();
+    void installSRTMAnalysis();
+    void writeFramesTable(QString fileName);
+    void writeTimeModelFile(QString directoryName);
+    void writeGLMFile(QString directoryName);
 
     QString getDimensions(QString fileName, iPoint4D &dim);
     void getTimeTags(QString fileName, dVector &timeTags, sVector &timeText );
@@ -193,7 +202,11 @@ private:
     void enableAnatomyActionButtons();
     void enablePETActionButtons();
 
-    void findDICOMs();
+    void findDICOMs(bool remove);
+    void findAuxFiles(bool remove);
+    void findResliceMCFiles(bool remove);
+    void findRawFiles(bool remove);
+    void findAllFiles();
 
 public:
     MainWindow(QWidget *parent = 0);
@@ -201,7 +214,7 @@ public:
 private slots:
     inline void enableGUI(int exitCode, QProcess::ExitStatus exitStatus )
     {
-        qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
+        qInfo() << "finished";
         _centralWidget->setEnabled(true);
         showBrowser(false);
     }
@@ -256,10 +269,18 @@ private slots:
     void applyMotionCorrectionToPET();
     void reslicePET();
     void alignPET();
+    void analyzeTAC();
     void finishedMotionCorrectMatchingMRI(int exitCode, QProcess::ExitStatus exitStatus);
     void finishedApplyingMCToPET(int exitCode, QProcess::ExitStatus exitStatus);
     void finishedFMReslicePET(int exitCode, QProcess::ExitStatus exitStatus );
     void finishedFMAlignPET(int exitCode, QProcess::ExitStatus exitStatus );
+    void finishedFMAnalyzeTAC(int exitCode, QProcess::ExitStatus exitStatus );
+
+    void changedScanTypeCheckBox(QListWidgetItem *item);
+    inline void cleanDICOMFiles()     {findDICOMs(true);         findDICOMs(false);         findAllFiles();}
+    inline void cleanResliceMCFiles() {findResliceMCFiles(true); findResliceMCFiles(false); findAllFiles();}
+    inline void cleanAuxNIIFiles()    {findAuxFiles(true);       findAuxFiles(false);       findAllFiles();}
+    inline void cleanRawNIIFiles()    {findRawFiles(true);       findRawFiles(false);       findAllFiles();}
 
 };
 

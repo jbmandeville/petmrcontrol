@@ -138,6 +138,7 @@ void MainWindow::finishedGeneratingScanList(int exitCode, QProcess::ExitStatus e
     readAvailableScanList();
     _centralWidget->setEnabled(true);
     _downloadDataButton->setEnabled(enableDownloadData());
+    qInfo() << "finished: generating scan list";
     showBrowser(false);
 }
 
@@ -379,7 +380,7 @@ void MainWindow::downloadData()
 
 void MainWindow::finishedDownloadData(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
+    qInfo() << "finished: downloading data";
 
     for (int jList=0; jList<_scans.size(); jList++)
         reformatAcquisitionTimes(_scans.at(jList));

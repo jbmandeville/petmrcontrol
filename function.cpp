@@ -39,9 +39,9 @@ void MainWindow::createfMRIPage()
     runsBox->setLayout(setupLayout);
 //    runsBox->setStyleSheet("border: 1px dotted gray");
 
-    _resliceEPIButton       = new QPushButton("reslice runs as necessary (raw --> reslice)",_anatomyPage);
-    _motionCorrectEPIButton = new QPushButton("motion-correct runs (raw/reslice -->mc)",_anatomyPage);
-    _alignEPIButton         = new QPushButton("Align to template (raw/reslice/mc -> align)",_anatomyPage);
+    _resliceEPIButton       = new QPushButton("reslice runs as necessary (raw --> reslice)",_fmriPage);
+    _motionCorrectEPIButton = new QPushButton("motion-correct runs (raw/reslice -->mc)",_fmriPage);
+    _alignEPIButton         = new QPushButton("Align to template (raw/reslice/mc -> align)",_fmriPage);
     connect(_resliceEPIButton,       SIGNAL(pressed()), this, SLOT(resliceEPI()));
     connect(_motionCorrectEPIButton, SIGNAL(pressed()), this, SLOT(motionCorrectEPI()));
     connect(_alignEPIButton,         SIGNAL(pressed()), this, SLOT(alignEPI()));
@@ -51,11 +51,11 @@ void MainWindow::createfMRIPage()
     actionLayout->addWidget(_motionCorrectEPIButton);
     actionLayout->addWidget(_alignEPIButton);
 
-    _fMRIActionBox = new QGroupBox("Process EPI runs");
-    _fMRIActionBox->setLayout(actionLayout);
+    auto *fMRIActionBox = new QGroupBox("Process EPI runs");
+    fMRIActionBox->setLayout(actionLayout);
     auto *pageLayout = new QVBoxLayout();
     pageLayout->addWidget(runsBox);
-    pageLayout->addWidget(_fMRIActionBox);
+    pageLayout->addWidget(fMRIActionBox);
     _fmriPage->setLayout(pageLayout);
 }
 
@@ -89,7 +89,7 @@ void MainWindow::changedfMRIRunCheckBox(QListWidgetItem *item)
 }
 
 void MainWindow::changefMRITemplateDirectory(int indexInBox)
-{
+{// fMRI template directory = "004", "005", ...
     FUNC_ENTER << indexInBox << _fMRIFiles.size();
     _dimEPITemplate = _fMRIFiles[indexInBox].dim;
     FUNC_INFO << "_dimEPITemplate" << _dimEPITemplate.x << _dimEPITemplate.y << _dimEPITemplate.z;
@@ -106,6 +106,7 @@ void MainWindow::openedfMRIPage()
 {
     FUNC_ENTER;
 
+    qInfo() << "query EPI data";
     QDir const fMRITopDir("./epi");
     if (!fMRITopDir.exists())
     {
@@ -113,19 +114,22 @@ void MainWindow::openedfMRIPage()
         return;
     }
     FUNC_INFO << 1;
-    QStringList const folderList = fMRITopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-    for (int jList=0; jList<folderList.size(); jList++)
+    if (_fMRITemplateDirectoryBox->count() == 0 )
     {
-        QString rawName     = fMRITopDir.absolutePath() + "/" + folderList.at(jList) + "/raw.nii";
-        QString resliceName = fMRITopDir.absolutePath() + "/" + folderList.at(jList) + "/reslice.nii";
-        QString alignName   = fMRITopDir.absolutePath() + "/" + folderList.at(jList) + "/align.nii";
-        QFileInfo checkRaw(rawName);
-        QFileInfo checkReslice(resliceName);
-        QFileInfo checkAlign(alignName);
-        if ( (checkRaw.exists() && checkRaw.isFile()) ||
-             (checkReslice.exists() && checkReslice.isFile()) ||
-             (checkAlign.exists() && checkAlign.isFile()) )
-            _fMRITemplateDirectoryBox->addItem(folderList.at(jList));
+        QStringList const folderList = fMRITopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+        for (int jList=0; jList<folderList.size(); jList++)
+        {
+            QString rawName     = fMRITopDir.absolutePath() + "/" + folderList.at(jList) + "/raw.nii";
+            QString resliceName = fMRITopDir.absolutePath() + "/" + folderList.at(jList) + "/reslice.nii";
+            QString alignName   = fMRITopDir.absolutePath() + "/" + folderList.at(jList) + "/align.nii";
+            QFileInfo checkRaw(rawName);
+            QFileInfo checkReslice(resliceName);
+            QFileInfo checkAlign(alignName);
+            if ( (checkRaw.exists() && checkRaw.isFile())         ||
+                 (checkReslice.exists() && checkReslice.isFile()) ||
+                 (checkAlign.exists() && checkAlign.isFile())      )
+                _fMRITemplateDirectoryBox->addItem(folderList.at(jList));
+        }
     }
 
     // Find the template directory
@@ -198,7 +202,7 @@ void MainWindow::updateFileNameBox()
 }
 
 void MainWindow::changedfMRIFileName(int indexInBox)
-{
+{ // fMRI file name = "raw.nii", "reslice.nii", "mc.nii", "align.nii"
     FUNC_ENTER;
     QDir const fMRITopDir("./epi/");
     if (!fMRITopDir.exists())
@@ -330,9 +334,8 @@ void MainWindow::resliceEPI()
 }
 void MainWindow::finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitStatus )
 {
+    qInfo() << "finished: reslice EPI";
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
-
-    updateFileNameBox();
 
     QString exe = _scriptDirectory + "linkNonReslicedRaws.csh";
     QStringList arguments;
@@ -355,6 +358,8 @@ void MainWindow::finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitSta
     auto *process = new QProcess;
     process->startDetached(exe,arguments);
     _centralWidget->setEnabled(true);
+    updateFileNameBox();
+
 }
 
 void MainWindow::alignEPI()
@@ -370,6 +375,14 @@ void MainWindow::alignEPI()
     arguments.append("align");
     arguments.append("-T");
     arguments.append(_anatomyTemplateDirectory->currentText());
+    // include individual anatomy file
+    QString individualAnatomy = "t1/" + _anatomyInputDirectoryBox->currentText() + "/align.nii";
+    QFileInfo checkFile(individualAnatomy);
+    if ( checkFile.exists() && checkFile.isFile() )
+    {
+        arguments.append("-a");
+        arguments.append(individualAnatomy);
+    }
     arguments.append("--output-file");
     arguments.append("align");
     for (int jFile=0; jFile<_fMRIFiles.size(); jFile++)
@@ -385,7 +398,9 @@ void MainWindow::alignEPI()
 }
 void MainWindow::finishedFMAlignEPI(int exitCode, QProcess::ExitStatus exitStatus )
 {
+    qInfo() << "finished: align EPI";
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
+    updateFileNameBox();
     _centralWidget->setEnabled(true);
 }
 
@@ -417,6 +432,7 @@ void MainWindow::motionCorrectEPI()
 }
 void MainWindow::finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus)
 {
+    qInfo() << "finished: motion-correct EPI";
     updateFileNameBox();
     _centralWidget->setEnabled(true);
     showBrowser(false);
