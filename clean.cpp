@@ -27,17 +27,21 @@ void MainWindow::createCleanPage()
 
     _cleanDICOMs         = new QPushButton("clean DICOMS",_cleanPage);
     _cleanNII_auxilliary = new QPushButton("clean intermediate NIFTIs",_cleanPage);
-    _cleanNII_reslice_mc = new QPushButton("clean reslice.nii and mc.nii",_cleanPage);
+    _cleanNII_mc         = new QPushButton("clean pre-alignment files (mc.nii)",_cleanPage);
     _cleanNII_raw        = new QPushButton("clean raw.nii",_cleanPage);
     connect(_cleanDICOMs,         SIGNAL(pressed()), this, SLOT(cleanDICOMFiles()));
     connect(_cleanNII_auxilliary, SIGNAL(pressed()), this, SLOT(cleanAuxNIIFiles()));
-    connect(_cleanNII_reslice_mc, SIGNAL(pressed()), this, SLOT(cleanResliceMCFiles()));
+    connect(_cleanNII_mc, SIGNAL(pressed()), this, SLOT(cleanMCFiles()));
     connect(_cleanNII_raw,        SIGNAL(pressed()), this, SLOT(cleanRawNIIFiles()));
+    _cleanDICOMs->setToolTip("No reason to keep DICOMs after extracting time tags.");
+    _cleanNII_auxilliary->setToolTip("These intermediate files can be recovered if you have the raw files.");
+    _cleanNII_mc->setToolTip("If you clean these, you can't easily change alignment/smoothing without repeating earlier steps.");
+    _cleanNII_raw->setToolTip("These can be recovered by down-loading again, but it takes time.");
 
     auto *actionLayout = new QVBoxLayout();
     actionLayout->addWidget(_cleanDICOMs);
     actionLayout->addWidget(_cleanNII_auxilliary);
-    actionLayout->addWidget(_cleanNII_reslice_mc);
+    actionLayout->addWidget(_cleanNII_mc);
     actionLayout->addWidget(_cleanNII_raw);
     auto *actionBox = new QGroupBox("Clean directories (remove files)");
     actionBox->setLayout(actionLayout);
@@ -109,7 +113,7 @@ void MainWindow::updateCleaningList()
     }
     findDICOMs(false);
     findAuxFiles(false);
-    findResliceMCFiles(false);
+    findMCFiles(false);
     findRawFiles(false);
     findAllFiles();
 }
@@ -193,11 +197,15 @@ void MainWindow::findAuxFiles(bool remove)
                 spec.append("matchingMRI-rs.nii");
                 spec.append("matchingMRI-mc.nii");
                 spec.append("test.nii");
+                spec.append("mc.nii");      // mc --> reslice
             }
+            else
+                spec.append("reslice.nii"); // reslice --> mc
 
             QString dirName = scan.categoryName + "/" + scan.scanNumberNew;
             QDir dir(dirName);
-            QStringList const fileList = dir.entryList(spec, QDir::Files | QDir::NoSymLinks);
+//            QStringList const fileList = dir.entryList(spec, QDir::Files | QDir::NoSymLinks);
+            QStringList const fileList = dir.entryList(spec, QDir::Files);
 
             qint64 totalSizeThisDir=0;
             for (int jFile=0; jFile<fileList.size(); jFile++)
@@ -232,7 +240,7 @@ void MainWindow::findAuxFiles(bool remove)
     FUNC_EXIT;
 }
 
-void MainWindow::findResliceMCFiles(bool remove)
+void MainWindow::findMCFiles(bool remove)
 {
     qint64 totalSizeAll=0;
 
@@ -243,7 +251,6 @@ void MainWindow::findResliceMCFiles(bool remove)
         if ( scan.existsOnDisk && scan.selectedForCleaning )
         {
             QStringList spec;
-            spec.append("reslice.nii");
             spec.append("mc.nii");
 
             QString dirName = scan.categoryName + "/" + scan.scanNumberNew;
@@ -278,8 +285,8 @@ void MainWindow::findResliceMCFiles(bool remove)
     if ( remove )
         qInfo() << "Removed" << gigabytes << "Gb";
     else
-        _cleanNII_reslice_mc->setText(QString("clean reslice.nii and mc.nii: disk space = %1 Gb").arg(gigabytes));
-    _cleanNII_reslice_mc->setEnabled(totalSizeAll > 0);
+        _cleanNII_mc->setText(QString("clean pre-alignment files (usually mc.nii): disk space = %1 Gb").arg(gigabytes));
+    _cleanNII_mc->setEnabled(totalSizeAll > 0);
     FUNC_EXIT;
 }
 

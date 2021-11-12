@@ -143,14 +143,17 @@ void MainWindow::openedPETPage()
     {
         FourDFile fMRIFile;
         fMRIFile.name = epiFolderList.at(jList);
-        QString fullFileName = fMRITopDir.absolutePath() + "/" + fMRIFile.name + "/raw.nii";
         QString tagsFileName = fMRITopDir.absolutePath() + "/" + fMRIFile.name + "/time-tags.txt";
-        getDimensions(fullFileName, fMRIFile.dim);
+        // Because only the time dimension is needed here for the fMRI files, just use the time-tags to avoid file searches
+//        QString fullFileName = fMRITopDir.absolutePath() + "/" + fMRIFile.name + "/raw.nii";
+//        getDimensions(fullFileName, fMRIFile.dim);
         getTimeTags(tagsFileName,fMRIFile.timeTags,fMRIFile.timeText);
+        fMRIFile.dim.t = fMRIFile.timeTags.size();
         if ( fMRIFile.dim.t > 0 )
             _fMRIFilesForPETMC.append(fMRIFile);
     }
 
+    FUNC_INFO << 2 << _fMRIFilesForPETMC.size();
     // find which one is the template
     int iTemplate=-1;
     for (int jList=0; jList<_fMRIFilesForPETMC.size(); jList++)
@@ -164,6 +167,7 @@ void MainWindow::openedPETPage()
     iTemplate = qMax(0,iTemplate);
     _fMRIForPETTemplate->setText(_fMRIFilesForPETMC.at(iTemplate).name);
 
+    FUNC_INFO << 3;
     if ( !_fMRIForPETTemplate->text().isEmpty() )
     {
         QString fileName = fMRITopDir.absolutePath() + "/" + _fMRIForPETTemplate->text() + "/reslice.nii";
@@ -176,8 +180,11 @@ void MainWindow::openedPETPage()
             QFileInfo checkFile(fileName);
             if (checkFile.exists() && checkFile.isFile())
                 _fMRIForPETFileName->setText("raw.nii");
+            else
+                _fMRIForPETTemplate->setText("");  // this should disable action button
         }
     }
+    FUNC_INFO << 4;
 
     updatePETRunBox(_petRunBox->currentIndex());
     enablePETActionButtons();

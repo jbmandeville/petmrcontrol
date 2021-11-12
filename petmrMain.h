@@ -26,6 +26,7 @@
 // 1) PET page: need to make file type variable (in case "raw.nii" is deleted)
 // 2) EPI page: after reslice, update file list (now have to leave page and go back)
 // 3) anatomy page: update file names after runFreeSurfer
+// 4)
 
 ////////////////////////////////////////////////////
 
@@ -148,7 +149,7 @@ private:
     QVector<QListWidgetItem> _cleanScanTypeItems;
     QPushButton *_cleanDICOMs;
     QPushButton *_cleanNII_auxilliary;  // MR*.nii, test.nii, matchingMRI-rs.nii, matchingMRI-mc.nii
-    QPushButton *_cleanNII_reslice_mc;  // reslice.nii, mc.nii
+    QPushButton *_cleanNII_mc;          // mc.nii: this needs to be kept in order to change smoothing
     QPushButton *_cleanNII_raw;         // raw.nii
     QLabel *_totalSizeSubDirs;
 
@@ -204,7 +205,7 @@ private:
 
     void findDICOMs(bool remove);
     void findAuxFiles(bool remove);
-    void findResliceMCFiles(bool remove);
+    void findMCFiles(bool remove);
     void findRawFiles(bool remove);
     void findAllFiles();
 
@@ -278,7 +279,7 @@ private slots:
 
     void changedScanTypeCheckBox(QListWidgetItem *item);
     inline void cleanDICOMFiles()     {findDICOMs(true);         findDICOMs(false);         findAllFiles();}
-    inline void cleanResliceMCFiles() {findResliceMCFiles(true); findResliceMCFiles(false); findAllFiles();}
+    inline void cleanMCFiles()        {findMCFiles(true);        findMCFiles(false);        findAllFiles();}
     inline void cleanAuxNIIFiles()    {findAuxFiles(true);       findAuxFiles(false);       findAllFiles();}
     inline void cleanRawNIIFiles()    {findRawFiles(true);       findRawFiles(false);       findAllFiles();}
 
