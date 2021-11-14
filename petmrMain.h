@@ -119,6 +119,7 @@ private:
     QComboBox *_anatomyTemplateDirectory; // multi-subject template directory
     QPushButton *_runFreeSurferButton;
     QPushButton *_alignAnatomyButton;
+    QPushButton *_extractFreeSurferOverlaysButton;
 
     // fMRI page
     QListWidget *_fMRIRunItemBox;
@@ -249,6 +250,8 @@ private slots:
     void changedPage(int index);
     void alignAnatomyToTemplate();
     void finishedFMAnatomyAlignment(int exitCode, QProcess::ExitStatus exitStatus );
+    void extractFreeSurferOverlays();
+    void finishedExtractOverlays(int exitCode, QProcess::ExitStatus exitStatus );
     void runFreeSurfer();
     void finishedRunFreeSurfer(int exitCode, QProcess::ExitStatus exitStatus );
 

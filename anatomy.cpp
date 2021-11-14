@@ -67,9 +67,12 @@ void MainWindow::createAnatomyPage()
     auto *anatomyAlignmentLayout = new QVBoxLayout();
     _alignAnatomyButton  = new QPushButton("Align to template (raw/brain --> align)",_anatomyPage);
     connect(_alignAnatomyButton, SIGNAL(pressed()), this, SLOT(alignAnatomyToTemplate()));
+    _extractFreeSurferOverlaysButton  = new QPushButton("extract freeSurfer ROIs from atlas file)",_anatomyPage);
+    connect(_extractFreeSurferOverlaysButton, SIGNAL(pressed()), this, SLOT(extractFreeSurferOverlays()));
 
     anatomyAlignmentLayout->addLayout(anatomyFileLayout);
     anatomyAlignmentLayout->addWidget(_alignAnatomyButton);
+    anatomyAlignmentLayout->addWidget(_extractFreeSurferOverlaysButton);
 
     auto *anatomyAlignmentBox = new QGroupBox("Use fastmap to align anatomy to a multi-subject template");
     anatomyAlignmentBox->setLayout(anatomyAlignmentLayout);
@@ -162,6 +165,44 @@ void MainWindow::updateAnatomyFileName()
     enableAnatomyActionButtons();
 }
 
+void MainWindow::extractFreeSurferOverlays()
+{
+    FUNC_ENTER;
+    auto *process = new QProcess;
+    _centralWidget->setEnabled(false);
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedExtractOverlays(int, QProcess::ExitStatus)));
+
+    QString brainName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/brain.nii";
+    QString atlasName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/atlas.nii";
+    QString comName   = "t1/" + _anatomyInputDirectoryBox->currentText() + "/align.com";
+    QString outputDir = "t1/" + _anatomyInputDirectoryBox->currentText() + "/templateOverlaysFromFreeSurfer";
+
+    QStringList arguments;
+    arguments.append(brainName);
+    arguments.append("-A");
+    arguments.append(atlasName);
+    arguments.append("-I");
+    arguments.append(comName);
+    arguments.append("-T");
+    arguments.append(_anatomyTemplateDirectory->currentText());
+    arguments.append("--output-file");
+    arguments.append(outputDir);
+    arguments.append("--preprocess");
+    arguments.append("register-overlays-forward");
+    arguments.append("--quit");
+    qInfo() << _fastmapProcess << arguments;
+    process->start(_fastmapProcess,arguments);
+
+    FUNC_EXIT;
+}
+
+void MainWindow::finishedExtractOverlays(int exitCode, QProcess::ExitStatus exitStatus )
+{
+    qInfo() << "finished: alignment";
+    qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
+    _centralWidget->setEnabled(true);
+}
+
 void MainWindow::alignAnatomyToTemplate()
 {
     FUNC_ENTER;
@@ -177,8 +218,6 @@ void MainWindow::alignAnatomyToTemplate()
     arguments.append("alignment");
     arguments.append("-T");
     arguments.append(_anatomyTemplateDirectory->currentText());
-    arguments.append("--output-file");
-    arguments.append("align");
     arguments.append("--output-file");
     arguments.append("align");
     qInfo() << _fastmapProcess << arguments;
@@ -209,22 +248,36 @@ bool MainWindow::anatomyFileExists(QString fileName)
 void MainWindow::enableAnatomyActionButtons()
 {
     QString fileName = _anatomyFileNameBox->currentText();
-
     bool fileIsRaw = ! fileName.compare("raw.nii");
-    _runFreeSurferButton->setEnabled(fileIsRaw);
-
     bool fileIsBrain = ! fileName.compare("brain.nii");
-    _alignAnatomyButton->setEnabled(fileIsBrain);
 
-    fileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/align.nii";
-    QFileInfo checkFile(fileName);
-    if ( checkFile.exists() && checkFile.isFile() )
-        _alignAnatomyButton->setStyleSheet("background-color:lightYellow;");
+    // Check for various files
+    bool rawExists      = anatomyFileExists("raw.nii");
+    bool brainExists    = anatomyFileExists("brain.nii");
+    bool alignExists    = anatomyFileExists("align.nii");
+    bool atlasExists    = anatomyFileExists("atlas.nii");
+    bool alignComExists = anatomyFileExists("align.com");
+
+    fileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/templateOverlaysFromFreeSurfer";
+    QFileInfo checkOverlays(fileName);
+    bool overlaysExist = checkOverlays.exists() && checkOverlays.isDir();
 
     QString freeDir = "free";
     QFileInfo checkDir(freeDir);
-    if ( checkDir.exists() && checkDir.isDir() )
+    bool freeExists = checkDir.exists() && checkDir.isDir();
+
+    // enable
+    _runFreeSurferButton->setEnabled(fileIsRaw  && rawExists);
+    _alignAnatomyButton->setEnabled(fileIsBrain && brainExists);
+    _extractFreeSurferOverlaysButton->setEnabled(brainExists && atlasExists && alignComExists);
+
+    // colorize
+    if ( alignExists )
+        _alignAnatomyButton->setStyleSheet("background-color:lightYellow;");
+    if ( freeExists )
         _runFreeSurferButton->setStyleSheet("background-color:lightYellow;");
+    if ( overlaysExist )
+        _extractFreeSurferOverlaysButton->setStyleSheet("background-color:lightYellow;");
 }
 
 void MainWindow::runFreeSurfer()
