@@ -30,7 +30,7 @@ void MainWindow::createAnatomyPage()
     // freeSurfer
     ////////////////////////////////////////////////
     auto *subjectIDLabel     = new QLabel("Subject ID",_anatomyPage);
-    _subjectIDFreeSurfer     = new QLineEdit("?");
+    _subjectIDFreeSurfer     = new QLineEdit("");
     setupFreeSurferLayout->addWidget(subjectIDLabel,0,0);
     setupFreeSurferLayout->addWidget(_subjectIDFreeSurfer,0,1);
 
@@ -99,13 +99,25 @@ void MainWindow::getSubjectNameFromFreeDir()
     // Read the time model file
     QDir const freeDir("./free");
     QStringList const folderList = freeDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks);
+
     FUNC_INFO << folderList;
     if ( folderList.count() == 1 )
     {
         _subjectIDDownload->setText(folderList.at(0));
         _subjectIDFreeSurfer->setText(folderList.at(0));
+        QDir thisDir = QDir::currentPath();
+        QStringList subDirs = thisDir.absolutePath().split("/");
+        FUNC_INFO << subDirs;
+        int nList = qMin(3,subDirs.count());
+        FUNC_INFO << "nList" << nList;
+        QString list;  list.append("[..]/");
+        for (int jList=nList; jList>0; jList--)
+        {
+            list.append(subDirs.at(subDirs.count()-jList));
+            if ( jList != 1 ) list.append("/");
+        }
         _queryDownloadGroupBox->setEnabled(false);
-        setWindowTitle(QString("petmrcontrol: %1").arg(_subjectIDFreeSurfer->text()));
+        setWindowTitle(QString("subject %1 @ %2").arg(_subjectIDFreeSurfer->text()).arg(list));
     }
     enableAnatomyActionButtons();
 }
@@ -266,10 +278,12 @@ void MainWindow::enableAnatomyActionButtons()
     QFileInfo checkDir(freeDir);
     bool freeExists = checkDir.exists() && checkDir.isDir();
 
+    bool subjectIDEmpty = _subjectIDFreeSurfer->text().isEmpty();
+
     // enable
     _runFreeSurferButton->setEnabled(fileIsRaw  && rawExists);
     _alignAnatomyButton->setEnabled(fileIsBrain && brainExists);
-    _extractFreeSurferOverlaysButton->setEnabled(brainExists && atlasExists && alignComExists);
+    _extractFreeSurferOverlaysButton->setEnabled(brainExists && atlasExists && alignComExists && !subjectIDEmpty);
 
     // colorize
     if ( alignExists )
