@@ -14,7 +14,7 @@ void MainWindow::createAnatomyPage()
     auto *inputLayout = new QGridLayout();
     _anatomyInputDirectoryBox = new QComboBox();
     _anatomyFileNameBox  = new QComboBox();
-    connect(_anatomyInputDirectoryBox, SIGNAL(activated(int)),this, SLOT(changedAnatomyDirName(int)));
+    connect(_anatomyInputDirectoryBox, SIGNAL(currentIndexChanged(int)),this, SLOT(changedAnatomyDirName(int)));
     connect(_anatomyFileNameBox, SIGNAL(activated(int)),this, SLOT(changedAnatomyFileName(int)));
 
     inputLayout->addWidget(anatDirLabel,0,0);
@@ -42,8 +42,8 @@ void MainWindow::createAnatomyPage()
     freeSurferLayout->addWidget(_runFreeSurferButton);
     freeSurferLayout->setSpacing(0);
 
-    auto *freeSurferGroupBox = new QGroupBox("Run FreeSurfer to delineate anatomy (TAKES HOURS)");
-    freeSurferGroupBox->setLayout(freeSurferLayout);
+    _freeSurferGroupBox = new QGroupBox("Run FreeSurfer to delineate anatomy (TAKES HOURS)");
+    _freeSurferGroupBox->setLayout(freeSurferLayout);
 
     ////////////////////////////////////////////////
     // anatomy registration
@@ -88,7 +88,7 @@ void MainWindow::createAnatomyPage()
     ////////////////////////////////////////////////
     auto *pageLayout = new QVBoxLayout();
     pageLayout->addWidget(anatomyInputBox);
-    pageLayout->addWidget(freeSurferGroupBox);
+    pageLayout->addWidget(_freeSurferGroupBox);
     pageLayout->addWidget(anatomyAlignmentBox);
     pageLayout->setSpacing(0);
     _anatomyPage->setLayout(pageLayout);
@@ -139,7 +139,7 @@ void MainWindow::openedAnatomyPage()
         _anatomyInputDirectoryBox->addItem(folderList.at(jList));
     _anatomyInputDirectoryBox->setCurrentIndex(_anatomyInputDirectoryBox->count()-1);
 
-    changedAnatomyDirName(_anatomyInputDirectoryBox->currentIndex());
+//    changedAnatomyDirName(_anatomyInputDirectoryBox->currentIndex());
 }
 
 void MainWindow::changedAnatomyDirName(int indexInBox)
@@ -179,7 +179,7 @@ void MainWindow::updateAnatomyFileName()
 
 void MainWindow::extractFreeSurferOverlays()
 {
-    FUNC_ENTER;
+    FUNC_ENTER << _anatomyInputDirectoryBox->currentText();
     auto *process = new QProcess;
     _centralWidget->setEnabled(false);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedExtractOverlays(int, QProcess::ExitStatus)));
@@ -282,8 +282,10 @@ void MainWindow::enableAnatomyActionButtons()
 
     // enable
     _runFreeSurferButton->setEnabled(fileIsRaw  && rawExists);
-    _alignAnatomyButton->setEnabled(fileIsBrain && brainExists);
+    _alignAnatomyButton->setEnabled((fileIsBrain && brainExists) || (fileIsRaw  && rawExists));
     _extractFreeSurferOverlaysButton->setEnabled(brainExists && atlasExists && alignComExists && !subjectIDEmpty);
+
+    FUNC_INFO << "colorize" << alignExists << freeExists << overlaysExist;
 
     // colorize
     if ( alignExists )

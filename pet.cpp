@@ -476,6 +476,8 @@ void MainWindow::alignPET()
     arguments.append(_anatomyTemplateDirectory->currentText());
     // alignment file name
     arguments.append("--preprocess");
+    arguments.append("register");
+    arguments.append("--output-file");
     arguments.append("align");
     arguments.append("--quit");
     arguments.append("-I");

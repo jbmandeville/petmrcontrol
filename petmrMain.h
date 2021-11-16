@@ -13,6 +13,7 @@
 #include <QGroupBox>
 #include <QTextBrowser>
 #include <QAction>
+#include <QRadioButton>
 #include <QDebug>
 
 #include "io.h"
@@ -99,6 +100,11 @@ private:
 
     QTextBrowser *_outputBrowser;
 
+    // Radiobuttons
+    QRadioButton *_radioButtonHumanBay7;
+    QRadioButton *_radioButtonNHPBay6;
+    QRadioButton *_radioButtonNHPBay7;
+
     // Download page
     QLineEdit *_subjectIDDownload;
     QComboBox *_downloadIDBox;
@@ -112,6 +118,7 @@ private:
     QGroupBox *_queryDownloadGroupBox;
 
     // Anatomy page
+    QGroupBox *_freeSurferGroupBox;
     QStringList _FastmapMSTemplateDirectories;
     QComboBox *_anatomyInputDirectoryBox; // "003 004"
     QLineEdit *_subjectIDFreeSurfer;
@@ -214,6 +221,8 @@ public:
     MainWindow(QWidget *parent = 0);
     ~MainWindow();
 private slots:
+    void dataOriginChanged();
+
     inline void enableGUI(int exitCode, QProcess::ExitStatus exitStatus )
     {
         qInfo() << "finished";

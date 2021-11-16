@@ -23,6 +23,21 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     readQSettings();
 
+    _radioButtonHumanBay7 = new QRadioButton("Human Bay 7");
+    _radioButtonNHPBay6   = new QRadioButton("NHP Bay 6");
+    _radioButtonNHPBay7   = new QRadioButton("NHP Bay 7");
+    connect(_radioButtonHumanBay7, SIGNAL(clicked(bool)), this, SLOT(dataOriginChanged()));
+    connect(_radioButtonNHPBay6,   SIGNAL(clicked(bool)), this, SLOT(dataOriginChanged()));
+    connect(_radioButtonNHPBay7,   SIGNAL(clicked(bool)), this, SLOT(dataOriginChanged()));
+    _radioButtonHumanBay7->setChecked(true);
+    auto *radioLayout = new QHBoxLayout();
+    radioLayout->addWidget(_radioButtonHumanBay7);
+    radioLayout->addWidget(_radioButtonNHPBay6);
+    radioLayout->addWidget(_radioButtonNHPBay7);
+    auto *radioBox = new QGroupBox("Data origin");
+    radioBox->setLayout(radioLayout);
+    radioBox->setStyleSheet("background-color:lightBlue;");
+
     _tabs = new QTabWidget();
     createDownloadPage();
     createAnatomyPage();
@@ -41,6 +56,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     _centralWidget = new QWidget(this);
     this->setCentralWidget( _centralWidget );
     auto *mainLayout = new QVBoxLayout( _centralWidget );
+    mainLayout->addWidget(radioBox);
     mainLayout->addWidget(_tabs);
 
     _statusBar = this->statusBar();
@@ -83,6 +99,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     defaultWindowSize.setHeight(rec.height()/4);
     resize(defaultWindowSize);
     _outputBrowser->resize(defaultWindowSize);
+}
+
+void MainWindow::dataOriginChanged()
+{
+    _freeSurferGroupBox->setVisible(_radioButtonHumanBay7->isChecked());
+    _extractFreeSurferOverlaysButton->setVisible(_radioButtonHumanBay7->isChecked());
 }
 
 void MainWindow::changedPage(int index)

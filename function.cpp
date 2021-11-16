@@ -92,7 +92,7 @@ void MainWindow::changefMRITemplateDirectory(int indexInBox)
 {// fMRI template directory = "004", "005", ...
     FUNC_ENTER << indexInBox << _fMRIFiles.size();
     _dimEPITemplate = _fMRIFiles[indexInBox].dim;
-    FUNC_INFO << "_dimEPITemplate" << _dimEPITemplate.x << _dimEPITemplate.y << _dimEPITemplate.z;
+    FUNC_INFO << "_dimEPITemplate3" << _dimEPITemplate.x << _dimEPITemplate.y << _dimEPITemplate.z;
     for (int jList=0; jList<_fMRIRunItems.size(); jList++)
     {
         if ( jList == indexInBox && _fMRIRunItems[jList].checkState() )
@@ -216,6 +216,8 @@ void MainWindow::changedfMRIFileName(int indexInBox)
     QString path = fMRITopDir.dirName() + "/" + _fMRITemplateDirectoryBox->currentText();
     QString fileName = path + "/" + _fMRIFileNameBox->currentText();
     getDimensions(fileName, _dimEPITemplate);
+    FUNC_INFO << "_dimEPITemplate1" << _dimEPITemplate.x << _dimEPITemplate.y << _dimEPITemplate.z;
+    FUNC_INFO << "from file" << fileName;
 
     // Count files for allocation
     int nFiles=0;
@@ -226,7 +228,7 @@ void MainWindow::changedfMRIFileName(int indexInBox)
         QString tagsName = "epi/" + folderList.at(jList) + "/time-tags.txt";
         getDimensions(file.name, file.dim);
         getTimeTags(tagsName,file.timeTags,file.timeText);
-        if ( file.dim.z != 0 )
+        if ( file.timeTags.size() != 0 )
             nFiles++;
     }
 
@@ -242,15 +244,24 @@ void MainWindow::changedfMRIFileName(int indexInBox)
         QString text = getDimensions(file.name, file.dim);
         getTimeTags(tagsName,file.timeTags,file.timeText);
         FUNC_INFO << "jList" << jList << "file" << file.name;
-        if ( file.dim.z != 0 )
+        if ( file.timeTags.size() != 0 )
         {
             FUNC_INFO << "add fmri file" << folderList.at(jList) << text;
             QListWidgetItem item;
 
             item.setText(folderList.at(jList) + " :    " + text);
-            item.setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
-            item.setCheckState(Qt::Checked);
-            item.setHidden(false);
+            bool hide = file.dim.z == 0;
+            item.setHidden(hide);
+            if ( hide )
+            {
+                item.setCheckState(Qt::Unchecked);
+                item.setFlags(Qt::ItemIsUserCheckable);
+            }
+            else
+            {
+                item.setCheckState(Qt::Checked);
+                item.setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
+            }
             FUNC_INFO << "here 1";
             _fMRIRunItems[nFiles] = item;
             FUNC_INFO << "here 2";
@@ -263,6 +274,7 @@ void MainWindow::changedfMRIFileName(int indexInBox)
     }
 
     FUNC_INFO << "_fMRIFiles size" << _fMRIFiles.size();
+    FUNC_INFO << "_dimEPITemplate2" << _dimEPITemplate.x << _dimEPITemplate.y << _dimEPITemplate.z;
     changefMRITemplateDirectory(_fMRITemplateDirectoryBox->currentIndex());
 
     enableEPIActionButtons();
@@ -370,6 +382,10 @@ void MainWindow::alignEPI()
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
             this, SLOT(finishedFMAlignEPI(int, QProcess::ExitStatus)));
 
+    QString comName   = "epi/" + _fMRITemplateDirectoryBox->currentText() + "/align.com";
+    QFileInfo checkComFile;
+    bool alignComExists = checkComFile.exists() && checkComFile.isFile();
+
     QStringList arguments;
     arguments.append("-O");
     arguments.append("align");
@@ -390,6 +406,11 @@ void MainWindow::alignEPI()
         bool includeFile = _fMRIRunItems[jFile].checkState();
         if ( includeFile )
             arguments.append(_fMRIFiles[jFile].name);
+    }
+    if ( alignComExists )
+    {
+        arguments.append("-I");
+        arguments.append(comName);
     }
     FUNC_INFO << _fastmapProcess << arguments;
     process->start(_fastmapProcess,arguments);

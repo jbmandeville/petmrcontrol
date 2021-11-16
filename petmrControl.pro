@@ -6,7 +6,6 @@
 #DEFINES += QT_NO_DEBUG_OUTPUT
 
 QT       += core gui concurrent
-
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 LIBS += -L"$$_PRO_FILE_PWD_/3rdparty/fftw-3.3.8/lib" -lfftw3
