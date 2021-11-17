@@ -169,7 +169,7 @@ private:
     QVector<FourDFile> _fMRIFilesForPETMC;
     FourDFile _petFile;
     iPoint4D _dimEPITemplate;
-    d2Matrix _matchingEPI;  // [_petFile.dim.t][list of pairs (fMRI file,time point)]
+    i2Matrix _matchingEPI;  // [_petFile.dim.t][list of pairs (fMRI file,time point)]
 
     void createDownloadPage();
     void createAnatomyPage();
