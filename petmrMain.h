@@ -120,7 +120,7 @@ private:
     // Anatomy page
     QGroupBox *_freeSurferGroupBox;
     QStringList _FastmapMSTemplateDirectories;
-    QComboBox *_anatomyInputDirectoryBox; // "003 004"
+    QComboBox *_anatomyDirBox; // "003 004"
     QLineEdit *_subjectIDFreeSurfer;
     QComboBox *_anatomyFileNameBox;       // "raw.nii or "brain.nii"
     QComboBox *_anatomyTemplateDirectory; // multi-subject template directory
@@ -131,7 +131,7 @@ private:
     // fMRI page
     QListWidget *_fMRIRunItemBox;
     QVector<QListWidgetItem> _fMRIRunItems;
-    QComboBox *_fMRITemplateDirectoryBox; // an existing directory
+    QComboBox *_fMRITemplateDirBox; // an existing directory
     QComboBox *_fMRIFileNameBox;          // "raw.nii or "mc.nii"
     QLineEdit *_fMRIMCRange;              // e.g. 1-10
     QPushButton *_resliceEPIButton;
@@ -139,8 +139,8 @@ private:
     QPushButton *_alignEPIButton;
 
     // PET page
-    QComboBox *_petRunBox;
-    QListWidget *petFramesBox;
+    QComboBox *_petDirBox;
+    QListWidget *_petFramesBox;
     QVector<QListWidgetItem> _petFrameItems;
     QLabel *_fMRIForPETTemplate;
     QLabel *_fMRIForPETFileName;
@@ -204,8 +204,13 @@ private:
     dPoint2D petFrameTime(int iFrame);
     void writeJipCommandFileForMatchingMRI();
     bool getPETMCInterpolationRequired();
-    bool anatomyFileExists(QString fileName);
-    bool PETFileExists(QString fileName);
+
+    inline bool anatomyFileExists(QString fileName) {return anatomyFileExists(_anatomyDirBox->currentText(),fileName);}
+    inline bool petFileExists(QString fileName)     {return petFileExists(_petDirBox->currentText(),fileName);}
+    inline bool epiFileExists(QString fileName)     {return epiFileExists(_fMRITemplateDirBox->currentText(),fileName);}
+    bool anatomyFileExists(QString dirName, QString fileName);
+    bool epiFileExists(QString dirName, QString fileName);
+    bool petFileExists(QString dirName, QString fileName);
 
     void enableEPIActionButtons();
     void enableAnatomyActionButtons();
@@ -263,6 +268,7 @@ private slots:
     void finishedExtractOverlays(int exitCode, QProcess::ExitStatus exitStatus );
     void runFreeSurfer();
     void finishedRunFreeSurfer(int exitCode, QProcess::ExitStatus exitStatus );
+    void displayAnatomy();
 
     void resliceEPI();
     void motionCorrectEPI();
@@ -275,7 +281,8 @@ private slots:
     void changedDownloadScanCheckBox(QListWidgetItem *item);
     
     void finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus);
-    
+    void displayEPI();
+
     void updatePETRunBox(int indexInBox);
     void changedPETFrameSelection(QListWidgetItem *item);
     void motionCorrectMatchingMRI();

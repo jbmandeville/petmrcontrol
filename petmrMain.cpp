@@ -96,7 +96,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     QSize defaultWindowSize;
     QRect rec = QApplication::desktop()->screenGeometry();
     defaultWindowSize.setWidth(rec.width()/4);
-    defaultWindowSize.setHeight(rec.height()/4);
+    defaultWindowSize.setHeight(rec.height()/2);
     resize(defaultWindowSize);
     _outputBrowser->resize(defaultWindowSize);
 }

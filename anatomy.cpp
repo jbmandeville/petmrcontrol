@@ -11,20 +11,30 @@ void MainWindow::createAnatomyPage()
     ////////////////////////////////////////////////
     auto *anatDirLabel = new QLabel("Sub-directory on 't1'");
     auto *anatInputFileLabel  = new QLabel("Input file: ",_anatomyPage);
-    auto *inputLayout = new QGridLayout();
-    _anatomyInputDirectoryBox = new QComboBox();
+    _anatomyDirBox = new QComboBox();
     _anatomyFileNameBox  = new QComboBox();
-    connect(_anatomyInputDirectoryBox, SIGNAL(currentIndexChanged(int)),this, SLOT(changedAnatomyDirName(int)));
+    connect(_anatomyDirBox, SIGNAL(currentIndexChanged(int)),this, SLOT(changedAnatomyDirName(int)));
     connect(_anatomyFileNameBox, SIGNAL(activated(int)),this, SLOT(changedAnatomyFileName(int)));
 
-    inputLayout->addWidget(anatDirLabel,0,0);
-    inputLayout->addWidget(_anatomyInputDirectoryBox,0,1);
-    inputLayout->addWidget(anatInputFileLabel,1,0);
-    inputLayout->addWidget(_anatomyFileNameBox,1,1);
+    auto *displayButton = new QPushButton("display file (fastmap)");
+    connect(displayButton, SIGNAL(pressed()), this, SLOT(displayAnatomy()));
+
+    auto *displayLayout = new QVBoxLayout();
+    displayLayout->addWidget(displayButton);
+
+    auto *inputFileLayout = new QGridLayout();
+    inputFileLayout->addWidget(anatDirLabel,0,0);
+    inputFileLayout->addWidget(_anatomyDirBox,0,1);
+    inputFileLayout->addWidget(anatInputFileLabel,1,0);
+    inputFileLayout->addWidget(_anatomyFileNameBox,1,1);
+
+    auto *inputLayout = new QVBoxLayout();
+    inputLayout->addLayout(inputFileLayout);
+    inputLayout->addLayout(displayLayout);
 
     auto *anatomyInputBox = new QGroupBox("Input directory for anatomy");
     anatomyInputBox->setLayout(inputLayout);
-    anatomyInputBox->setStyleSheet("border: 1px dotted gray");
+//    anatomyInputBox->setStyleSheet("border: 1px dotted gray");
 
     ////////////////////////////////////////////////
     // freeSurfer
@@ -76,7 +86,7 @@ void MainWindow::createAnatomyPage()
 
     auto *anatomyAlignmentBox = new QGroupBox("Use fastmap to align anatomy to a multi-subject template");
     anatomyAlignmentBox->setLayout(anatomyAlignmentLayout);
-    anatomyAlignmentBox->setStyleSheet("border: 1px dotted gray");
+//    anatomyAlignmentBox->setStyleSheet("border: 1px dotted gray");
 
     QString freeDir = "free";
     QFileInfo checkDir(freeDir);
@@ -129,17 +139,17 @@ void MainWindow::openedAnatomyPage()
     QDir const anatomyTopDir("./t1");
     if (!anatomyTopDir.exists())
     {
-        _anatomyInputDirectoryBox->clear();
+        _anatomyDirBox->clear();
         return;
     }
     QStringList const folderList = anatomyTopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
     FUNC_INFO << folderList;
-    _anatomyInputDirectoryBox->clear();
+    _anatomyDirBox->clear();
     for (int jList=0; jList<folderList.size(); jList++)
-        _anatomyInputDirectoryBox->addItem(folderList.at(jList));
-    _anatomyInputDirectoryBox->setCurrentIndex(_anatomyInputDirectoryBox->count()-1);
+        _anatomyDirBox->addItem(folderList.at(jList));
+    _anatomyDirBox->setCurrentIndex(_anatomyDirBox->count()-1);
 
-//    changedAnatomyDirName(_anatomyInputDirectoryBox->currentIndex());
+//    changedAnatomyDirName(_anatomyDirBox->currentIndex());
 }
 
 void MainWindow::changedAnatomyDirName(int indexInBox)
@@ -150,10 +160,10 @@ void MainWindow::changedAnatomyDirName(int indexInBox)
 void MainWindow::updateAnatomyFileName()
 {
     // For the current selection, show all NIFTI files
-    QString path = "./t1/" + _anatomyInputDirectoryBox->currentText();
-//    QString path = "./t1/" + _anatomyInputDirectoryBox->itemText(indexInBox);
+    QString path = "./t1/" + _anatomyDirBox->currentText();
+//    QString path = "./t1/" + _anatomyDirBox->itemText(indexInBox);
     QDir anatomyDir(path);
-    anatomyDir.setNameFilters(QStringList()<<"*.nii");
+    anatomyDir.setNameFilters(QStringList()<<"raw.nii"<<"brain.nii"<<"align.nii");
     QStringList fileList = anatomyDir.entryList();
 
     _anatomyFileNameBox->clear();
@@ -179,15 +189,15 @@ void MainWindow::updateAnatomyFileName()
 
 void MainWindow::extractFreeSurferOverlays()
 {
-    FUNC_ENTER << _anatomyInputDirectoryBox->currentText();
+    FUNC_ENTER << _anatomyDirBox->currentText();
     auto *process = new QProcess;
     _centralWidget->setEnabled(false);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedExtractOverlays(int, QProcess::ExitStatus)));
 
-    QString brainName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/brain.nii";
-    QString atlasName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/atlas.nii";
-    QString comName   = "t1/" + _anatomyInputDirectoryBox->currentText() + "/align.com";
-    QString outputDir = "t1/" + _anatomyInputDirectoryBox->currentText() + "/templateOverlaysFromFreeSurfer";
+    QString brainName = "t1/" + _anatomyDirBox->currentText() + "/brain.nii";
+    QString atlasName = "t1/" + _anatomyDirBox->currentText() + "/atlas.nii";
+    QString comName   = "t1/" + _anatomyDirBox->currentText() + "/align.com";
+    QString outputDir = "t1/" + _anatomyDirBox->currentText() + "/templateOverlaysFromFreeSurfer";
 
     QStringList arguments;
     arguments.append(brainName);
@@ -222,7 +232,7 @@ void MainWindow::alignAnatomyToTemplate()
     _centralWidget->setEnabled(false);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMAnatomyAlignment(int, QProcess::ExitStatus)));
 
-    QString inputFileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/" + _anatomyFileNameBox->currentText();
+    QString inputFileName = "t1/" + _anatomyDirBox->currentText() + "/" + _anatomyFileNameBox->currentText();
 
     QStringList arguments;
     arguments.append(inputFileName);
@@ -246,11 +256,10 @@ void MainWindow::finishedFMAnatomyAlignment(int exitCode, QProcess::ExitStatus e
     _centralWidget->setEnabled(true);
 }
 
-bool MainWindow::anatomyFileExists(QString fileName)
+bool MainWindow::anatomyFileExists(QString dirName, QString fileName)
 {
     bool fileExists = false;
-    QString fullName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/" + fileName;
-    FUNC_INFO << "check file" << fullName;
+    QString fullName = "t1/" + dirName + "/" + fileName;
     QFileInfo checkFile(fullName);
     if ( checkFile.exists() && checkFile.isFile() )
          fileExists = true;
@@ -270,7 +279,7 @@ void MainWindow::enableAnatomyActionButtons()
     bool atlasExists    = anatomyFileExists("atlas.nii");
     bool alignComExists = anatomyFileExists("align.com");
 
-    fileName = "t1/" + _anatomyInputDirectoryBox->currentText() + "/templateOverlaysFromFreeSurfer";
+    fileName = "t1/" + _anatomyDirBox->currentText() + "/templateOverlaysFromFreeSurfer";
     QFileInfo checkOverlays(fileName);
     bool overlaysExist = checkOverlays.exists() && checkOverlays.isDir();
 
@@ -314,7 +323,7 @@ void MainWindow::runFreeSurfer()
 
         QString exe = _scriptDirectory + "runFreeSurfer.csh";
         QStringList arguments;
-        arguments.append(_anatomyInputDirectoryBox->currentText());
+        arguments.append(_anatomyDirBox->currentText());
         arguments.append(_subjectIDFreeSurfer->text());
         qInfo() << exe << arguments;
         process->start(exe,arguments);
@@ -327,4 +336,39 @@ void MainWindow::finishedRunFreeSurfer(int exitCode, QProcess::ExitStatus exitSt
     updateAnatomyFileName();
     _centralWidget->setEnabled(true);
     showBrowser(false);
+}
+
+void MainWindow::displayAnatomy()
+{
+    FUNC_ENTER;
+    auto *process = new QProcess;
+
+    QString rootFileName = _anatomyFileNameBox->currentText();
+    QString inputFileName = "t1/" + _anatomyDirBox->currentText() + "/" + rootFileName;
+    QStringList arguments;
+    arguments.append(inputFileName);
+
+    if ( !rootFileName.compare("align.nii") )
+    {
+        QString ovlListName = "t1/" + _anatomyDirBox->currentText() + "/templateOverlaysFromFreeSurfer/overlay-list.dat";
+        QFileInfo checkFile(ovlListName);
+        if ( checkFile.exists() && checkFile.isFile() )
+        {
+            arguments.append("-o");
+            arguments.append(ovlListName);
+        }
+    }
+    else if ( !rootFileName.compare("brain.nii") )
+    {
+        if ( anatomyFileExists("atlas.nii") )
+        {
+            QString atlasFileName = "t1/" + _anatomyDirBox->currentText() + "/atlas.nii";
+            arguments.append("-A");
+            arguments.append(atlasFileName);
+        }
+    }
+    qInfo() << _fastmapProcess << arguments;
+    process->startDetached(_fastmapProcess,arguments);
+
+    FUNC_EXIT;
 }

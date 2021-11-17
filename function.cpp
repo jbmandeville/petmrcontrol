@@ -17,23 +17,29 @@ void MainWindow::createfMRIPage()
     auto *templateLabel = new QLabel("template directory");
     auto *fileLabel     = new QLabel("file name(s)");
     auto *rangeLabel    = new QLabel("averaging range for template");
-    _fMRITemplateDirectoryBox = new QComboBox();
+    _fMRITemplateDirBox = new QComboBox();
     _fMRIFileNameBox          = new QComboBox();
     _fMRIMCRange              = new QLineEdit("1-10");
-    connect(_fMRITemplateDirectoryBox, SIGNAL(activated(int)),this, SLOT(changefMRITemplateDirectory(int)));
+    connect(_fMRITemplateDirBox, SIGNAL(activated(int)),this, SLOT(changefMRITemplateDirectory(int)));
     connect(_fMRIFileNameBox,          SIGNAL(activated(int)),this, SLOT(changedfMRIFileName(int)));
 
     auto *fileLayout = new QGridLayout();
     fileLayout->addWidget(templateLabel,0,0);
-    fileLayout->addWidget(_fMRITemplateDirectoryBox,0,1);
+    fileLayout->addWidget(_fMRITemplateDirBox,0,1);
     fileLayout->addWidget(rangeLabel,1,0);
     fileLayout->addWidget(_fMRIMCRange,1,1);
     fileLayout->addWidget(fileLabel,2,0);
     fileLayout->addWidget(_fMRIFileNameBox,2,1);
 
+    auto *displayButton = new QPushButton("display file(s) with fastmap");
+    connect(displayButton, SIGNAL(pressed()), this, SLOT(displayEPI()));
+    auto *displayLayout = new QVBoxLayout();
+    displayLayout->addWidget(displayButton);
+
     auto *setupLayout = new QVBoxLayout();
     setupLayout->addLayout(runsLayout);
     setupLayout->addLayout(fileLayout);
+    setupLayout->addLayout(displayLayout);
 
     auto *runsBox = new QGroupBox("List of EPI runs to include in analysis");
     runsBox->setLayout(setupLayout);
@@ -69,7 +75,7 @@ void MainWindow::changedfMRIRunCheckBox(QListWidgetItem *item)
     }
     FUNC_INFO << iSelected;
     if ( !_fMRIRunItems[iSelected].checkState() &&
-         iSelected == _fMRITemplateDirectoryBox->currentIndex() )
+         iSelected == _fMRITemplateDirBox->currentIndex() )
     { // unselected the template directory, so pick the first selection
         iSelected = -1;  int numberChecked=0;
         for ( int jItem=0; jItem<_fMRIRunItems.size(); jItem++)
@@ -82,7 +88,7 @@ void MainWindow::changedfMRIRunCheckBox(QListWidgetItem *item)
         }
         FUNC_INFO << "numberChecked" << numberChecked;
         iSelected = qMax(iSelected,0);
-        _fMRITemplateDirectoryBox->setCurrentIndex(iSelected);
+        _fMRITemplateDirBox->setCurrentIndex(iSelected);
         changefMRITemplateDirectory(iSelected);
     }
     enableEPIActionButtons();
@@ -105,6 +111,7 @@ void MainWindow::changefMRITemplateDirectory(int indexInBox)
 void MainWindow::openedfMRIPage()
 {
     FUNC_ENTER;
+    openedAnatomyPage();
 
     qInfo() << "query EPI data";
     QDir const fMRITopDir("./epi");
@@ -114,32 +121,23 @@ void MainWindow::openedfMRIPage()
         return;
     }
     FUNC_INFO << 1;
-    if (_fMRITemplateDirectoryBox->count() == 0 )
+    if (_fMRITemplateDirBox->count() == 0 )
     {
         QStringList const folderList = fMRITopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
         for (int jList=0; jList<folderList.size(); jList++)
         {
-            QString rawName     = fMRITopDir.absolutePath() + "/" + folderList.at(jList) + "/raw.nii";
-            QString resliceName = fMRITopDir.absolutePath() + "/" + folderList.at(jList) + "/reslice.nii";
-            QString alignName   = fMRITopDir.absolutePath() + "/" + folderList.at(jList) + "/align.nii";
-            QFileInfo checkRaw(rawName);
-            QFileInfo checkReslice(resliceName);
-            QFileInfo checkAlign(alignName);
-            if ( (checkRaw.exists() && checkRaw.isFile())         ||
-                 (checkReslice.exists() && checkReslice.isFile()) ||
-                 (checkAlign.exists() && checkAlign.isFile())      )
-                _fMRITemplateDirectoryBox->addItem(folderList.at(jList));
+            if ( epiFileExists(folderList.at(jList),"raw.nii")     ||
+                 epiFileExists(folderList.at(jList),"reslice.nii") ||
+                 epiFileExists(folderList.at(jList),"align.nii")  )
+                _fMRITemplateDirBox->addItem(folderList.at(jList));
         }
     }
 
     // Find the template directory
     int iTemplate=-1;
-    for (int jList=0; jList<_fMRITemplateDirectoryBox->count(); jList++)
+    for (int jList=0; jList<_fMRITemplateDirBox->count(); jList++)
     {
-        QString fileName = fMRITopDir.absolutePath() + "/" + _fMRITemplateDirectoryBox->itemText(jList) + "/mcTemplate.nii";
-        QFileInfo checkTemplate(fileName);
-        FUNC_INFO << "check template" << fileName;
-        if (checkTemplate.exists() && checkTemplate.isFile())
+        if (epiFileExists("mcTemplate.nii"))
         {
             iTemplate = jList;
             FUNC_INFO << "found template" << iTemplate;
@@ -149,9 +147,9 @@ void MainWindow::openedfMRIPage()
 
     // Given the fMRI template directory, pick a file type
     // For the first selection, show all NIFTI files
-    _fMRITemplateDirectoryBox->setCurrentIndex(iTemplate);
+    _fMRITemplateDirBox->setCurrentIndex(iTemplate);
     updateFileNameBox();
-    changefMRITemplateDirectory(_fMRITemplateDirectoryBox->currentIndex());
+    changefMRITemplateDirectory(_fMRITemplateDirBox->currentIndex());
 
     enableEPIActionButtons();
 
@@ -160,7 +158,7 @@ void MainWindow::openedfMRIPage()
 
 void MainWindow::updateFileNameBox()
 {
-    QString path = "./epi/" + _fMRITemplateDirectoryBox->currentText();
+    QString path = "./epi/" + _fMRITemplateDirBox->currentText();
     FUNC_ENTER << path;
     QDir templateDir(path);
     templateDir.setNameFilters(QStringList()<<"*.nii");
@@ -213,7 +211,7 @@ void MainWindow::changedfMRIFileName(int indexInBox)
     FUNC_INFO << 1;
     QStringList const folderList = fMRITopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 
-    QString path = fMRITopDir.dirName() + "/" + _fMRITemplateDirectoryBox->currentText();
+    QString path = fMRITopDir.dirName() + "/" + _fMRITemplateDirBox->currentText();
     QString fileName = path + "/" + _fMRIFileNameBox->currentText();
     getDimensions(fileName, _dimEPITemplate);
     FUNC_INFO << "_dimEPITemplate1" << _dimEPITemplate.x << _dimEPITemplate.y << _dimEPITemplate.z;
@@ -275,7 +273,7 @@ void MainWindow::changedfMRIFileName(int indexInBox)
 
     FUNC_INFO << "_fMRIFiles size" << _fMRIFiles.size();
     FUNC_INFO << "_dimEPITemplate2" << _dimEPITemplate.x << _dimEPITemplate.y << _dimEPITemplate.z;
-    changefMRITemplateDirectory(_fMRITemplateDirectoryBox->currentIndex());
+    changefMRITemplateDirectory(_fMRITemplateDirBox->currentIndex());
 
     enableEPIActionButtons();
     FUNC_EXIT;
@@ -317,7 +315,7 @@ void MainWindow::resliceEPI()
     arguments.append("-O");
     arguments.append("reslice");
     arguments.append("-a");
-    QString templateFileName = "./epi/" + _fMRITemplateDirectoryBox->currentText()
+    QString templateFileName = "./epi/" + _fMRITemplateDirBox->currentText()
             + "/" + _fMRIFileNameBox->currentText();
     arguments.append(templateFileName);
     arguments.append("--preprocess");
@@ -374,6 +372,17 @@ void MainWindow::finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitSta
 
 }
 
+bool MainWindow::epiFileExists(QString dirName, QString fileName)
+{
+    bool fileExists = false;
+    QString fullName = "epi/" + dirName + "/" + fileName;
+    FUNC_INFO << "check file" << fullName;
+    QFileInfo checkFile(fullName);
+    if ( checkFile.exists() && checkFile.isFile() )
+         fileExists = true;
+    return fileExists;
+}
+
 void MainWindow::alignEPI()
 {
     FUNC_ENTER;
@@ -382,9 +391,7 @@ void MainWindow::alignEPI()
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
             this, SLOT(finishedFMAlignEPI(int, QProcess::ExitStatus)));
 
-    QString comName   = "epi/" + _fMRITemplateDirectoryBox->currentText() + "/align.com";
-    QFileInfo checkComFile;
-    bool alignComExists = checkComFile.exists() && checkComFile.isFile();
+    bool alignComExists = epiFileExists("align.com");
 
     QStringList arguments;
     arguments.append("-O");
@@ -392,7 +399,7 @@ void MainWindow::alignEPI()
     arguments.append("-T");
     arguments.append(_anatomyTemplateDirectory->currentText());
     // include individual anatomy file
-    QString individualAnatomy = "t1/" + _anatomyInputDirectoryBox->currentText() + "/align.nii";
+    QString individualAnatomy = "t1/" + _anatomyDirBox->currentText() + "/align.nii";
     QFileInfo checkFile(individualAnatomy);
     if ( checkFile.exists() && checkFile.isFile() )
     {
@@ -409,6 +416,7 @@ void MainWindow::alignEPI()
     }
     if ( alignComExists )
     {
+        QString comName = "epi/" + _fMRITemplateDirBox->currentText() + "/align.com";
         arguments.append("-I");
         arguments.append(comName);
     }
@@ -438,7 +446,7 @@ void MainWindow::motionCorrectEPI()
     QString exe = _scriptDirectory + "motionCorrectEPI.csh";
     QStringList arguments;
     // arguments: [MC template dir] [template range (e.g. 1-10)] [list of files: "epi/011/reslice.nii ..."]
-    arguments.append(_fMRITemplateDirectoryBox->currentText());
+    arguments.append(_fMRITemplateDirBox->currentText());
     arguments.append(_fMRIMCRange->text());
     // list of EPI directories to motion-correct ...
     for (int jFile=0; jFile<_fMRIFiles.size(); jFile++)
@@ -457,4 +465,38 @@ void MainWindow::finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exi
     updateFileNameBox();
     _centralWidget->setEnabled(true);
     showBrowser(false);
+}
+
+void MainWindow::displayEPI()
+{
+    FUNC_ENTER;
+    auto *process = new QProcess;
+
+    QString rootFileName = _fMRIFileNameBox->currentText();
+    QStringList arguments;
+    for (int jFile=0; jFile<_fMRIFiles.size(); jFile++)
+    {
+        bool includeFile = _fMRIRunItems[jFile].checkState();
+        if ( includeFile )
+            arguments.append(_fMRIFiles[jFile].name);
+    }
+
+    if ( !rootFileName.compare("align.nii") )
+    {
+        QString ovlListName = "t1/" + _anatomyDirBox->currentText() + "/templateOverlaysFromFreeSurfer/overlay-list.dat";
+        FUNC_INFO << "check file" << ovlListName;
+        QFileInfo checkFile(ovlListName);
+        if ( checkFile.exists() && checkFile.isFile() )
+        {
+            arguments.append("-o");
+            arguments.append(ovlListName);
+        }
+        else
+            FUNC_INFO << "does not exist:" << ovlListName;
+    }
+
+    qInfo() << _fastmapProcess << arguments;
+    process->startDetached(_fastmapProcess,arguments);
+
+    FUNC_EXIT;
 }
