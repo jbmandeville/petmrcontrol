@@ -128,7 +128,7 @@ private:
     QStringList _FastmapMSTemplateDirectories;
     QComboBox *_anatomyDirBox; // "003 004"
     QLineEdit *_subjectIDFreeSurfer;
-    QComboBox *_anatomyFileNameBox;       // "raw.nii or "brain.nii"
+    QComboBox *_anatomyFileBox;       // "raw.nii or "brain.nii"
     QComboBox *_anatomyTemplateDirectory; // multi-subject template directory
     QPushButton *_runFreeSurferButton;
     QPushButton *_alignAnatomyButton;
@@ -138,20 +138,23 @@ private:
     QListWidget *_fMRIRunItemBox;
     QVector<QListWidgetItem> _fMRIRunItems;
     QComboBox *_fMRITemplateDirBox; // an existing directory
-    QComboBox *_fMRIFileNameBox;          // "raw.nii or "mc.nii"
+    QComboBox *_fMRIFileBox;          // "raw.nii or "mc.nii"
     QLineEdit *_fMRIMCRange;              // e.g. 1-10
+    QPushButton *_doEverythingEPIButton;
     QPushButton *_resliceEPIButton;
     QPushButton *_motionCorrectEPIButton;
     QPushButton *_alignEPIButton;
 
     // PET page
     QComboBox *_petDirBox;
+    QComboBox *_petFileBox;
     QListWidget *_petFramesBox;
     QVector<QListWidgetItem> _petFrameItems;
     QLabel *_fMRIForPETTemplate;
     QLabel *_fMRIForPETFileName;
     QString _anatomyFileNameForPETReslice;
     QString _alignFileNameForPETRegistration;
+    QPushButton *_doEverythingPETButton;
     QPushButton *_motionCorrectMatchingMRIButton;
     QPushButton *_motionCorrectPETButton;
     QPushButton *_reslicePETButton;
@@ -168,14 +171,15 @@ private:
     QLabel *_totalSizeSubDirs;
 
     // non-GUI variables
-    QSettings _savedQSettings;        // needs organization & application name to work (see main.cpp)
     QVector<downloadScan> _scans;
     QString _lastTemplateDirectory;   // this should be written locally, not read from qsettings
     QVector<FourDFile> _fMRIFiles;
     QVector<FourDFile> _fMRIFilesForPETMC;
     FourDFile _petFile;
     iPoint4D _dimEPITemplate;
-    d2Matrix _matchingEPI;  // [_petFile.dim.t][list of pairs (fMRI file,time point)]
+    i2Matrix _matchingEPI;  // [_petFile.dim.t][list of pairs (fMRI file,time point)]
+    savedSettings _savedSettings;
+    QSettings _savedQSettings;
 
     void createDownloadPage();
     void createAnatomyPage();
@@ -194,15 +198,24 @@ private:
     void readUnpackLog();
     bool enableDownloadData();
     void reformatAcquisitionTimes(downloadScan scan);
-    void updateFileNameBox();
-    void findPETandFMRIOverlap();
+
     void setupScanTypes();
-    void updateCleaningList();
+
     void updateAnatomyFileName();
+
+    void populateEPIFileNameBox();
+    void setDefaultIndexEPIFileNameBox();
+    void updateEPIFileNameBox(QString fileName);
+
+    void updatePETFileNameBox(QString fileName);
+    void updatePETFileNameBox();
+    void findPETandFMRIOverlap();
     void installSRTMAnalysis();
     void writeFramesTable(QString fileName);
     void writeTimeModelFile(QString directoryName);
     void writeGLMFile(QString directoryName);
+
+    void updateCleaningList();
 
     QString getDimensions(QString fileName, iPoint4D &dim);
     void getTimeTags(QString fileName, dVector &timeTags, sVector &timeText );
@@ -276,12 +289,14 @@ private slots:
     void finishedRunFreeSurfer(int exitCode, QProcess::ExitStatus exitStatus );
     void displayAnatomy();
 
+    void doEverthingEPI();
     void resliceEPI();
     void motionCorrectEPI();
     void alignEPI();
     void changefMRITemplateDirectory(int indexInBox);
     void changedfMRIFileName(int indexInBox);
     void finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitStatus );
+    void finishedLinkResliceEPI(int exitCode, QProcess::ExitStatus exitStatus );
     void finishedFMAlignEPI(int exitCode, QProcess::ExitStatus exitStatus );
     void changedfMRIRunCheckBox(QListWidgetItem* item);
     void changedDownloadScanCheckBox(QListWidgetItem *item);
@@ -289,10 +304,11 @@ private slots:
     void finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus);
     void displayEPI();
 
-    void updatePETRunBox(int indexInBox);
+    void updatePETDirBox(int indexInBox);
     void changedPETFrameSelection(QListWidgetItem *item);
     void motionCorrectMatchingMRI();
     void applyMotionCorrectionToPET();
+    void doEverthingPET();
     void reslicePET();
     void alignPET();
     void analyzeTAC();
