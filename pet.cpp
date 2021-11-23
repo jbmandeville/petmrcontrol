@@ -8,24 +8,43 @@ void MainWindow::createPETPage()
 
     auto *petRunLabel = new QLabel("PET run");
     _petDirBox = new QComboBox();
+    connect(_petDirBox, SIGNAL(currentIndexChanged(int)),this, SLOT(updatePETDirBox(int)));
+
+    auto *petFileName = new QLabel("file name");
+    _petFileBox = new QComboBox();
+//    connect(_petDirBox, SIGNAL(activated(int)),this, SLOT(updatePETFileBox(int)));
+
+    auto *petRunLayout = new QGridLayout();
+    petRunLayout->addWidget(petRunLabel,0,0);
+    petRunLayout->addWidget(_petDirBox,0,1);
+    petRunLayout->addWidget(petFileName,1,0);
+    petRunLayout->addWidget(_petFileBox,1,1);
+
+    auto *displayButton = new QPushButton("display file (fastmap)");
+//    connect(displayButton, SIGNAL(pressed()), this, SLOT(displayPET()));
+
+    auto *displayLayout = new QVBoxLayout();
+    displayLayout->addWidget(displayButton);
+
     _petFramesBox = new QListWidget();
     _petFramesBox->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::MinimumExpanding);
     _petFramesBox->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
     connect(_petFramesBox, SIGNAL(itemClicked(QListWidgetItem*)),this, SLOT(changedPETFrameSelection(QListWidgetItem*)));
-    connect(_petDirBox, SIGNAL(activated(int)),this, SLOT(updatePETRunBox(int)));
-
-    auto *petRunLayout = new QHBoxLayout();
-    petRunLayout->addWidget(petRunLabel);
-    petRunLayout->addWidget(_petDirBox);
 
     auto *runLayout = new QVBoxLayout();
     runLayout->addLayout(petRunLayout);
+    runLayout->addLayout(displayLayout);
     runLayout->addWidget(_petFramesBox);
 
     auto *templateLabel = new QLabel("fMRI template directory (with mcTemplate.nii)");
     auto *fileLabel     = new QLabel("fMRI file name(s) for motion-correction");
     _fMRIForPETTemplate = new QLabel("");
     _fMRIForPETFileName = new QLabel("");
+
+    _doEverythingPETButton = new QPushButton("Do everything (no interaction required)");
+    _doEverythingPETButton->setEnabled(false);
+    _doEverythingPETButton->setCheckable(true);
+    connect(_doEverythingPETButton, SIGNAL(clicked(bool)), this, SLOT(doEverthingPET()));
 
     _motionCorrectMatchingMRIButton = new QPushButton("Create matching MRI and motion-correct it");
     _motionCorrectMatchingMRIButton->setEnabled(false);
@@ -43,6 +62,7 @@ void MainWindow::createPETPage()
     auto *setupLayout = new QVBoxLayout();
     setupLayout->addLayout(runLayout);
     setupLayout->addLayout(fMRILayout);
+    setupLayout->addWidget(_doEverythingPETButton);
     setupLayout->addWidget(_motionCorrectMatchingMRIButton);
     setupLayout->addWidget(_motionCorrectPETButton);
 
@@ -70,6 +90,52 @@ void MainWindow::createPETPage()
     pageLayout->addWidget(actionBox);
     _petPage->setLayout(pageLayout);
 }
+
+void MainWindow::updatePETFileNameBox(QString fileName)
+{
+    updatePETFileNameBox();
+    int foundIndex=-1;
+    for (int jList=0; jList<_petFileBox->count(); jList++)
+    {
+        if ( _petFileBox->itemText(jList).compare(fileName) )
+            foundIndex = jList;
+    }
+    if ( foundIndex >= 0 ) _petFileBox->setCurrentIndex(foundIndex);
+}
+
+
+void MainWindow::updatePETFileNameBox()
+{
+    // For the current selection, show all NIFTI files
+    QString path = "./pet/" + _petDirBox->currentText();
+    QDir petDir(path);
+    petDir.setNameFilters(QStringList()<<"raw.nii"<<"mc.nii"<<"reslice.nii"<<"align.nii");
+    QStringList fileList = petDir.entryList();
+
+    _petFileBox->clear();
+    int indexRaw=-1;  int indexMC=-1;  int indexReslice=-1;  int indexAlign=-1;
+    for (int jList=0; jList<fileList.size(); jList++)
+    {
+        _petFileBox->addItem(fileList.at(jList));
+        if ( fileList.at(jList) == "align.nii")   indexAlign   = jList;
+        if ( fileList.at(jList) == "mc.nii")      indexMC      = jList;
+        if ( fileList.at(jList) == "reslice.nii") indexReslice = jList;
+        if ( fileList.at(jList) == "raw.nii")     indexRaw      = jList;
+    }
+    if ( indexAlign >= 0 )
+        _petFileBox->setCurrentIndex(indexAlign);
+    else if ( indexMC >= 0)
+        _petFileBox->setCurrentIndex(indexMC);
+    else if ( indexReslice >= 0)
+        _petFileBox->setCurrentIndex(indexReslice);
+    else if ( indexRaw >= 0)
+        _petFileBox->setCurrentIndex(indexRaw);
+    else if ( _anatomyFileBox->count() > 0 )
+        _petFileBox->setCurrentIndex(0);
+    // Enable/disable:  // if anatomy file was found, it can be used for either freeSurfer or alignment
+    enablePETActionButtons();
+}
+
 
 void MainWindow::changedPETFrameSelection(QListWidgetItem *item)
 {
@@ -198,7 +264,7 @@ void MainWindow::openedPETPage()
     FUNC_INFO << 4;
 
     FUNC_INFO << "petDirBox text #1" << _petDirBox->currentText() << _petDirBox->currentIndex();
-    updatePETRunBox(_petDirBox->currentIndex());
+    updatePETDirBox(_petDirBox->currentIndex());
     enablePETActionButtons();
 
     FUNC_EXIT;
@@ -227,7 +293,9 @@ void MainWindow::enablePETActionButtons()
     _motionCorrectMatchingMRIButton->setEnabled( !_fMRIForPETTemplate->text().isEmpty() && _petDirBox->count() > 0);
     _motionCorrectPETButton->setEnabled(_petDirBox->count() > 0 && petFileExists("mc.dat"));
     _reslicePETButton->setEnabled(petFileExists("mc.nii"));
-    _alignPETButton->setEnabled(petFileExists("reslice.nii") && anatomyFileExists("align.com"));
+    _alignPETButton->setEnabled(petFileExists("reslice.nii")    && anatomyFileExists("align.com"));
+    _doEverythingPETButton->setEnabled(petFileExists("raw.nii") && anatomyFileExists("align.com") &&
+                                       !_fMRIForPETTemplate->text().isEmpty() );
 
     FUNC_INFO << "***" << petFileExists("reslice.nii") << anatomyFileExists("align.com");
 
@@ -240,14 +308,19 @@ void MainWindow::enablePETActionButtons()
         _reslicePETButton->setStyleSheet("background-color:lightYellow;");
     if ( petFileExists("align.nii") )
         _alignPETButton->setStyleSheet("background-color:lightYellow;");
+    if ( petFileExists("srtm","timeModel.dat") )
+    {
+        _analyzeTAC->setStyleSheet("background-color:lightYellow;");
+        _doEverythingPETButton->setStyleSheet("background-color:lightYellow;");
+    }
 
 }
 
-void MainWindow::updatePETRunBox(int indexInBox)
+void MainWindow::updatePETDirBox(int indexInBox)
 {
-    _petFile.name = "raw.nii";
+    _petFile.name = "pet/" + _petDirBox->currentText() + "/" + _petFileBox->currentText();
     FUNC_ENTER << indexInBox << _petFile.name;
-    if ( petFileExists(_petFile.name) )
+    if ( petFileExists(_petFileBox->currentText()) )
     {
         getDimensions(_petFile.name, _petFile.dim);
         bool timeTagsExists = petFileExists("time-tags.txt");
@@ -282,6 +355,7 @@ void MainWindow::updatePETRunBox(int indexInBox)
             _petFramesBox->addItem(&_petFrameItems[jFrame]);
         }
     }
+    updatePETFileNameBox();
     FUNC_EXIT;
 }
 void MainWindow::findPETandFMRIOverlap()
@@ -314,9 +388,23 @@ void MainWindow::findPETandFMRIOverlap()
     FUNC_EXIT;
 }
 
+void MainWindow::doEverthingPET()
+{
+    FUNC_ENTER;
+    _motionCorrectMatchingMRIButton->setStyleSheet("background-color:white;");
+    _motionCorrectPETButton->setStyleSheet("background-color:white;");
+    _reslicePETButton->setStyleSheet("background-color:white;");
+    _alignPETButton->setStyleSheet("background-color:white;");
+    _analyzeTAC->setStyleSheet("background-color:white;");
+    _doEverythingPETButton->setStyleSheet("background-color:white;");
+
+    motionCorrectMatchingMRI();
+}
+
 void MainWindow::motionCorrectMatchingMRI()
 {
     FUNC_ENTER;
+    updatePETFileNameBox("raw.nii");  // not really required
     // First write the jip command file to create the matching MRI volume
     writeJipCommandFileForMatchingMRI();
 
@@ -340,11 +428,18 @@ void MainWindow::motionCorrectMatchingMRI()
 void MainWindow::finishedMotionCorrectMatchingMRI(int exitCode, QProcess::ExitStatus exitStatus)
 {
     FUNC_ENTER;
-    enablePETActionButtons();
 
     // Is interpolation required?
     _centralWidget->setEnabled(true);
     showBrowser(false);
+    if ( _doEverythingPETButton->isChecked() )
+    {
+        if ( _petDirBox->count() > 0 && petFileExists("mc.dat") )
+             _motionCorrectMatchingMRIButton->setStyleSheet("background-color:lightYellow;");
+        applyMotionCorrectionToPET();
+    }
+    else
+        enablePETActionButtons();
 }
 void MainWindow::applyMotionCorrectionToPET()
 {
@@ -370,9 +465,17 @@ void MainWindow::applyMotionCorrectionToPET()
 void MainWindow::finishedApplyingMCToPET(int exitCode, QProcess::ExitStatus exitStatus)
 {
     FUNC_ENTER;
-    enablePETActionButtons();
     _centralWidget->setEnabled(true);
     showBrowser(false);
+    updatePETFileNameBox("mc.nii");  // not really required
+    if ( _doEverythingPETButton->isChecked() )
+    {
+        if ( petFileExists("mc.nii") || petFileExists("reslice.nii") || petFileExists("align.nii") )
+            _motionCorrectPETButton->setStyleSheet("background-color:lightYellow;");
+        reslicePET();
+    }
+    else
+        enablePETActionButtons();
 }
 
 void MainWindow::writeJipCommandFileForMatchingMRI()
@@ -497,16 +600,33 @@ void MainWindow::alignPET()
 void MainWindow::finishedFMReslicePET(int exitCode, QProcess::ExitStatus exitStatus )
 {
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
-    enablePETActionButtons();
     _centralWidget->setEnabled(true);
     showBrowser(false);
+    updatePETFileNameBox("reslice.nii");  // not really required
+    if ( _doEverythingPETButton->isChecked() )
+    {
+        if ( petFileExists("reslice.nii") )
+            _reslicePETButton->setStyleSheet("background-color:lightYellow;");
+        alignPET();
+    }
+    else
+        enablePETActionButtons();
 }
 void MainWindow::finishedFMAlignPET(int exitCode, QProcess::ExitStatus exitStatus )
 {
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
-    enablePETActionButtons();
     _centralWidget->setEnabled(true);
     showBrowser(false);
+    updatePETFileNameBox("align.nii");  // not really required
+    if ( _doEverythingPETButton->isChecked() )
+    {
+        if ( petFileExists("align.nii") )
+            _alignPETButton->setStyleSheet("background-color:lightYellow;");
+        _doEverythingPETButton->setChecked(false);
+        analyzeTAC();
+    }
+    else
+        enablePETActionButtons();
 }
 
 void MainWindow::analyzeTAC()
@@ -542,6 +662,11 @@ void MainWindow::finishedFMAnalyzeTAC(int exitCode, QProcess::ExitStatus exitSta
     enablePETActionButtons();
     _centralWidget->setEnabled(true);
     showBrowser(false);
+    if ( petFileExists("srtm","timeModel.dat") )
+    {
+        _analyzeTAC->setStyleSheet("background-color:lightYellow;");
+        _doEverythingPETButton->setStyleSheet("background-color:lightYellow;");
+    }
 }
 void MainWindow::installSRTMAnalysis()
 {

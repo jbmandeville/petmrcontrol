@@ -10,11 +10,11 @@ void MainWindow::createAnatomyPage()
     // input directory
     ////////////////////////////////////////////////
     auto *anatDirLabel = new QLabel("Sub-directory on 't1'");
-    auto *anatInputFileLabel  = new QLabel("Input file: ",_anatomyPage);
+    auto *anatInputFileLabel  = new QLabel("file name ",_anatomyPage);
     _anatomyDirBox = new QComboBox();
-    _anatomyFileNameBox  = new QComboBox();
+    _anatomyFileBox  = new QComboBox();
     connect(_anatomyDirBox, SIGNAL(currentIndexChanged(int)),this, SLOT(changedAnatomyDirName(int)));
-    connect(_anatomyFileNameBox, SIGNAL(activated(int)),this, SLOT(changedAnatomyFileName(int)));
+    connect(_anatomyFileBox, SIGNAL(activated(int)),this, SLOT(changedAnatomyFileName(int)));
 
     auto *displayButton = new QPushButton("display file (fastmap)");
     connect(displayButton, SIGNAL(pressed()), this, SLOT(displayAnatomy()));
@@ -26,7 +26,7 @@ void MainWindow::createAnatomyPage()
     inputFileLayout->addWidget(anatDirLabel,0,0);
     inputFileLayout->addWidget(_anatomyDirBox,0,1);
     inputFileLayout->addWidget(anatInputFileLabel,1,0);
-    inputFileLayout->addWidget(_anatomyFileNameBox,1,1);
+    inputFileLayout->addWidget(_anatomyFileBox,1,1);
 
     auto *inputLayout = new QVBoxLayout();
     inputLayout->addLayout(inputFileLayout);
@@ -61,10 +61,11 @@ void MainWindow::createAnatomyPage()
     auto *templateDirLabel    = new QLabel("Template directory: ",_anatomyPage);
     _anatomyTemplateDirectory = new QComboBox();
     int iSelection = 0;
+    FUNC_INFO << "save template" << _savedSettings.lastTemplateDirectory;
     for (int jList=0; jList<_FastmapMSTemplateDirectories.count(); jList+=2)
     {
         _anatomyTemplateDirectory->addItem(_FastmapMSTemplateDirectories.at(jList));
-        if ( !_lastTemplateDirectory.compare(_FastmapMSTemplateDirectories.at(jList)) )
+        if ( !_savedSettings.lastTemplateDirectory.compare(_FastmapMSTemplateDirectories.at(jList)) )
             iSelection = jList/2;
     }
     _anatomyTemplateDirectory->setCurrentIndex(iSelection);
@@ -166,23 +167,23 @@ void MainWindow::updateAnatomyFileName()
     anatomyDir.setNameFilters(QStringList()<<"raw.nii"<<"brain.nii"<<"align.nii");
     QStringList fileList = anatomyDir.entryList();
 
-    _anatomyFileNameBox->clear();
+    _anatomyFileBox->clear();
     int indexRaw=-1;  int indexBrain=-1;  int indexAlign=-1;
     for (int jList=0; jList<fileList.size(); jList++)
     {
-        _anatomyFileNameBox->addItem(fileList.at(jList));
+        _anatomyFileBox->addItem(fileList.at(jList));
         if ( fileList.at(jList) == "align.nii") indexAlign = jList;
         if ( fileList.at(jList) == "brain.nii") indexBrain = jList;
         if ( fileList.at(jList) == "raw.nii")   indexRaw   = jList;
     }
     if ( indexAlign >= 0 )
-        _anatomyFileNameBox->setCurrentIndex(indexAlign);
+        _anatomyFileBox->setCurrentIndex(indexAlign);
     else if ( indexBrain >= 0)
-        _anatomyFileNameBox->setCurrentIndex(indexBrain);
+        _anatomyFileBox->setCurrentIndex(indexBrain);
     else if ( indexRaw >= 0)
-        _anatomyFileNameBox->setCurrentIndex(indexRaw);
-    else if ( _anatomyFileNameBox->count() > 0 )
-        _anatomyFileNameBox->setCurrentIndex(0);
+        _anatomyFileBox->setCurrentIndex(indexRaw);
+    else if ( _anatomyFileBox->count() > 0 )
+        _anatomyFileBox->setCurrentIndex(0);
     // Enable/disable:  // if anatomy file was found, it can be used for either freeSurfer or alignment
     enableAnatomyActionButtons();
 }
@@ -232,7 +233,7 @@ void MainWindow::alignAnatomyToTemplate()
     _centralWidget->setEnabled(false);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMAnatomyAlignment(int, QProcess::ExitStatus)));
 
-    QString inputFileName = "t1/" + _anatomyDirBox->currentText() + "/" + _anatomyFileNameBox->currentText();
+    QString inputFileName = "t1/" + _anatomyDirBox->currentText() + "/" + _anatomyFileBox->currentText();
 
     QStringList arguments;
     arguments.append(inputFileName);
@@ -268,7 +269,7 @@ bool MainWindow::anatomyFileExists(QString dirName, QString fileName)
 
 void MainWindow::enableAnatomyActionButtons()
 {
-    QString fileName = _anatomyFileNameBox->currentText();
+    QString fileName = _anatomyFileBox->currentText();
     bool fileIsRaw = ! fileName.compare("raw.nii");
     bool fileIsBrain = ! fileName.compare("brain.nii");
 
@@ -343,7 +344,7 @@ void MainWindow::displayAnatomy()
     FUNC_ENTER;
     auto *process = new QProcess;
 
-    QString rootFileName = _anatomyFileNameBox->currentText();
+    QString rootFileName = _anatomyFileBox->currentText();
     QString inputFileName = "t1/" + _anatomyDirBox->currentText() + "/" + rootFileName;
     QStringList arguments;
     arguments.append(inputFileName);

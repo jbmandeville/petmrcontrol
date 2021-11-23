@@ -2336,8 +2336,8 @@ int ImageIO::writeNiftiHeader(QString fileName)
         nifti_header.vox_offset  = 352;  // 352 + 16-byte extension
 
     nifti_header.scl_slope   = nifti_header.scl_inter = 0;
-    //  nifti_header.xyzt_units  = NIFTI_UNITS_MM | NIFTI_UNITS_SEC;
-    nifti_header.xyzt_units  = NIFTI_UNITS_MM;
+    nifti_header.xyzt_units  = NIFTI_UNITS_MM | NIFTI_UNITS_SEC;
+//    nifti_header.xyzt_units  = NIFTI_UNITS_MM;
     nifti_header.cal_min = nifti_header.cal_max = 0.;
     nifti_header.toffset = 0.;
 

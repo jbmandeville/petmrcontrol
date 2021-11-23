@@ -93,12 +93,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     _outputBrowser = new QTextBrowser;
     _browserAction->setChecked(false);
 
+    /*
     QSize defaultWindowSize;
     QRect rec = QApplication::desktop()->screenGeometry();
     defaultWindowSize.setWidth(rec.width()/4);
     defaultWindowSize.setHeight(rec.height()/2);
     resize(defaultWindowSize);
     _outputBrowser->resize(defaultWindowSize);
+    */
+
+    restoreGeometry(_savedSettings.imageWindowGeometry);
+    _outputBrowser->restoreGeometry(_savedSettings.browserWindowGeometry);
+
 }
 
 void MainWindow::dataOriginChanged()
@@ -143,13 +149,21 @@ void MainWindow::exitApp()
 void MainWindow::readQSettings()
 {
     QString defaultDir = "/homes/deltabp/1/users/public/templates/humanMNI305/2mm";
-    _lastTemplateDirectory = _savedQSettings.value("lastTemplateDirectory",defaultDir).toString();
-    FUNC_INFO << "_lastTemplateDirectory" << _lastTemplateDirectory;
+    _savedSettings.lastTemplateDirectory = _savedQSettings.value("lastTemplateDirectory",defaultDir).toString();
+    QByteArray defaultImageWindowGeometry = saveGeometry();  // defined in ImageWindow constructor
+    _savedSettings.imageWindowGeometry    = _savedQSettings.value("imageWindowGeometry",defaultImageWindowGeometry).toByteArray();
+    _savedSettings.browserWindowGeometry  = _savedQSettings.value("browserWindowGeometry",defaultImageWindowGeometry).toByteArray();
+    FUNC_INFO << "_lastTemplateDirectory" << _savedSettings.lastTemplateDirectory;
 }
 
 void MainWindow::writeQSettings()
 {
     _savedQSettings.setValue("lastTemplateDirectory",_anatomyTemplateDirectory->currentText());
+    if ( !isMaximized() )
+        _savedQSettings.setValue("imageWindowGeometry",saveGeometry());
+    if ( !isMaximized() )
+        _savedQSettings.setValue("browserWindowGeometry",_outputBrowser->saveGeometry());
+
     _savedQSettings.sync();
 }
 
@@ -160,10 +174,14 @@ QString MainWindow::getDimensions(QString fileName, iPoint4D &dim)
     if ( checkFile.exists() && checkFile.isFile() )
     {
         ImageIO file;
-        if ( !file.readFileHeader(fileName,false) )
+        if ( !file.readFileHeader(fileName,true) )
         {
             dim = file.getDimensions();
-            QString text = QString("%1 x %2 x %3 with %4 time points").arg(dim.x).arg(dim.y).arg(dim.z).arg(dim.t);
+            dPoint4D res = file.getResolution();
+            qInfo() << "time step" << res.t;
+            double duration = dim.t * res.t / 60.;
+            QString text = QString("%1 x %2 x %3 with %4 time points (%5 min)")
+                    .arg(dim.x).arg(dim.y).arg(dim.z).arg(dim.t).arg(duration);
             return text;
         }
         else
