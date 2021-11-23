@@ -372,7 +372,10 @@ void MainWindow::findPETandFMRIOverlap()
             {
                 double timeEPI = fmri.timeTags.at(jt);
                 if ( timeEPI >= timeFrame.lower && timeEPI <= timeFrame.upper )
-                    _matchingEPI[jFrame].append({jFile,jt});
+                {
+                    iPoint2D pair; pair.x=jFile;  pair.y=jt;
+                    _matchingEPI[jFrame].append(pair);
+                }
             }
         }
         // output
