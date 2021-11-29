@@ -42,7 +42,7 @@ private:
     QString _dicomDumpProcess   = "/usr/bin/dcmdump";
     QString _scriptDirectory    = "/homes/1/jbm/script/analyze-fm/";
 
-    enum tabPages_fMRIFiles
+    enum tabPages
     {
         page_download,
         page_anatomy,
@@ -152,12 +152,10 @@ private:
     QVector<QListWidgetItem> _petFrameItems;
     QLabel *_fMRIForPETTemplate;
     QLabel *_fMRIForPETFileName;
-    QString _anatomyFileNameForPETReslice;
     QString _alignFileNameForPETRegistration;
     QPushButton *_doEverythingPETButton;
     QPushButton *_motionCorrectMatchingMRIButton;
     QPushButton *_motionCorrectPETButton;
-    QPushButton *_reslicePETButton;
     QPushButton *_alignPETButton;
     QPushButton *_analyzeTAC;
 
@@ -309,12 +307,10 @@ private slots:
     void motionCorrectMatchingMRI();
     void applyMotionCorrectionToPET();
     void doEverthingPET();
-    void reslicePET();
     void alignPET();
     void analyzeTAC();
     void finishedMotionCorrectMatchingMRI(int exitCode, QProcess::ExitStatus exitStatus);
     void finishedApplyingMCToPET(int exitCode, QProcess::ExitStatus exitStatus);
-    void finishedFMReslicePET(int exitCode, QProcess::ExitStatus exitStatus );
     void finishedFMAlignPET(int exitCode, QProcess::ExitStatus exitStatus );
     void finishedFMAnalyzeTAC(int exitCode, QProcess::ExitStatus exitStatus );
 

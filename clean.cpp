@@ -197,7 +197,6 @@ void MainWindow::findAuxFiles(bool remove)
                 spec.append("matchingMRI-rs.nii");
                 spec.append("matchingMRI-mc.nii");
                 spec.append("test.nii");
-                spec.append("mc.nii");      // mc --> reslice
             }
             else
                 spec.append("reslice.nii"); // reslice --> mc
@@ -285,7 +284,7 @@ void MainWindow::findMCFiles(bool remove)
     if ( remove )
         qInfo() << "Removed" << gigabytes << "Gb";
     else
-        _cleanNII_mc->setText(QString("clean pre-alignment files (usually mc.nii): disk space = %1 Gb").arg(gigabytes));
+        _cleanNII_mc->setText(QString("clean pre-alignment files (mc.nii): disk space = %1 Gb").arg(gigabytes));
     _cleanNII_mc->setEnabled(totalSizeAll > 0);
     FUNC_EXIT;
 }

@@ -246,6 +246,16 @@ void MainWindow::alignAnatomyToTemplate()
     qInfo() << _fastmapProcess << arguments;
     process->start(_fastmapProcess,arguments);
 
+    QMessageBox msgBox;
+    QString line1 = "1) Check/adjust alignment (calculator button)\n";
+    QString line2 = "2) Run images through alignment pipeline (run button)\n";
+    QString line3 = "3) Save images (next to run button)\n";
+    QString line4 = "4) quit gracefully (control-q or menu exit)";
+    QString text = line1 + line2 + line3 + line4;
+    msgBox.setText(text);
+    msgBox.setIcon(QMessageBox::Information);
+    msgBox.exec();
+
     FUNC_EXIT;
 }
 

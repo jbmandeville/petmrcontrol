@@ -69,16 +69,13 @@ void MainWindow::createPETPage()
     auto *runsBox = new QGroupBox("Motion-correct PET using EPI");
     runsBox->setLayout(setupLayout);
 
-    _reslicePETButton = new QPushButton("Reslice PET (mc -->reslice)");
-    _alignPETButton   = new QPushButton("Align PET time series (reslice --> align)");
+    _alignPETButton   = new QPushButton("Align PET time series (mc --> align)");
     _analyzeTAC       = new QPushButton("Analyze TAC");
-    connect(_reslicePETButton,               SIGNAL(pressed()), this, SLOT(reslicePET()));
     connect(_alignPETButton,                 SIGNAL(pressed()), this, SLOT(alignPET()));
     connect(_analyzeTAC,                     SIGNAL(pressed()), this, SLOT(analyzeTAC()));
     _motionCorrectPETButton->setEnabled(false);
 
     auto *actionLayout = new QVBoxLayout();
-    actionLayout->addWidget(_reslicePETButton);
     actionLayout->addWidget(_alignPETButton);
     actionLayout->addWidget(_analyzeTAC);
 
@@ -109,25 +106,22 @@ void MainWindow::updatePETFileNameBox()
     // For the current selection, show all NIFTI files
     QString path = "./pet/" + _petDirBox->currentText();
     QDir petDir(path);
-    petDir.setNameFilters(QStringList()<<"raw.nii"<<"mc.nii"<<"reslice.nii"<<"align.nii");
+    petDir.setNameFilters(QStringList()<<"raw.nii"<<"mc.nii"<<"align.nii");
     QStringList fileList = petDir.entryList();
 
     _petFileBox->clear();
-    int indexRaw=-1;  int indexMC=-1;  int indexReslice=-1;  int indexAlign=-1;
+    int indexRaw=-1;  int indexMC=-1;  int indexAlign=-1;
     for (int jList=0; jList<fileList.size(); jList++)
     {
         _petFileBox->addItem(fileList.at(jList));
         if ( fileList.at(jList) == "align.nii")   indexAlign   = jList;
         if ( fileList.at(jList) == "mc.nii")      indexMC      = jList;
-        if ( fileList.at(jList) == "reslice.nii") indexReslice = jList;
         if ( fileList.at(jList) == "raw.nii")     indexRaw      = jList;
     }
     if ( indexAlign >= 0 )
         _petFileBox->setCurrentIndex(indexAlign);
     else if ( indexMC >= 0)
         _petFileBox->setCurrentIndex(indexMC);
-    else if ( indexReslice >= 0)
-        _petFileBox->setCurrentIndex(indexReslice);
     else if ( indexRaw >= 0)
         _petFileBox->setCurrentIndex(indexRaw);
     else if ( _anatomyFileBox->count() > 0 )
@@ -247,19 +241,12 @@ void MainWindow::openedPETPage()
     FUNC_INFO << 3;
     if ( !_fMRIForPETTemplate->text().isEmpty() )
     {
-        QString fileName = fMRITopDir.absolutePath() + "/" + _fMRIForPETTemplate->text() + "/reslice.nii";
+        QString fileName = fMRITopDir.absolutePath() + "/" + _fMRIForPETTemplate->text() + "/raw.nii";
         QFileInfo checkFile(fileName);
         if (checkFile.exists() && checkFile.isFile())
-            _fMRIForPETFileName->setText("reslice.nii");
+            _fMRIForPETFileName->setText("raw.nii");
         else
-        {
-            QString fileName = fMRITopDir.absolutePath() + "/" + _fMRIForPETTemplate->text() + "/raw.nii";
-            QFileInfo checkFile(fileName);
-            if (checkFile.exists() && checkFile.isFile())
-                _fMRIForPETFileName->setText("raw.nii");
-            else
-                _fMRIForPETTemplate->setText("");  // this should disable action button
-        }
+            _fMRIForPETTemplate->setText("");  // this should disable action button
     }
     FUNC_INFO << 4;
 
@@ -272,40 +259,22 @@ void MainWindow::openedPETPage()
 
 void MainWindow::enablePETActionButtons()
 {
-    QString templateFileName = "t1/" + _anatomyDirBox->currentText() + "/brain.nii";
-    QFileInfo checkBrain(templateFileName);
-    if ( checkBrain.exists() && checkBrain.isFile() )
-        _anatomyFileNameForPETReslice = templateFileName;
-    else
-    {
-        templateFileName = "t1/" + _anatomyDirBox->currentText() + "/raw.nii";
-        QFileInfo checkRaw(templateFileName);
-        if ( checkRaw.exists() && checkRaw.isFile() )
-            _anatomyFileNameForPETReslice = templateFileName;
-    }
-    _reslicePETButton->setText(QString("Reslice PET (mc -->reslice) using %1").arg(_anatomyFileNameForPETReslice));\
-
     _alignFileNameForPETRegistration = "t1/" + _anatomyDirBox->currentText() + "/align.com";
-    _alignPETButton->setText(QString("Align PET time series (reslice --> align) using %1")
+    _alignPETButton->setText(QString("Align PET time series (mc --> align) using %1")
                              .arg(_alignFileNameForPETRegistration));
 
     // enable
     _motionCorrectMatchingMRIButton->setEnabled( !_fMRIForPETTemplate->text().isEmpty() && _petDirBox->count() > 0);
     _motionCorrectPETButton->setEnabled(_petDirBox->count() > 0 && petFileExists("mc.dat"));
-    _reslicePETButton->setEnabled(petFileExists("mc.nii"));
-    _alignPETButton->setEnabled(petFileExists("reslice.nii")    && anatomyFileExists("align.com"));
+    _alignPETButton->setEnabled(petFileExists("mc.nii")    && anatomyFileExists("align.com"));
     _doEverythingPETButton->setEnabled(petFileExists("raw.nii") && anatomyFileExists("align.com") &&
                                        !_fMRIForPETTemplate->text().isEmpty() );
-
-    FUNC_INFO << "***" << petFileExists("reslice.nii") << anatomyFileExists("align.com");
 
     // highlight
     if ( _petDirBox->count() > 0 && petFileExists("mc.dat") )
         _motionCorrectMatchingMRIButton->setStyleSheet("background-color:lightYellow;");
-    if ( petFileExists("mc.nii") || petFileExists("reslice.nii") || petFileExists("align.nii") )
+    if ( petFileExists("mc.nii") || petFileExists("align.nii") )
         _motionCorrectPETButton->setStyleSheet("background-color:lightYellow;");
-    if ( petFileExists("reslice.nii") )
-        _reslicePETButton->setStyleSheet("background-color:lightYellow;");
     if ( petFileExists("align.nii") )
         _alignPETButton->setStyleSheet("background-color:lightYellow;");
     if ( petFileExists("srtm","timeModel.dat") )
@@ -396,7 +365,6 @@ void MainWindow::doEverthingPET()
     FUNC_ENTER;
     _motionCorrectMatchingMRIButton->setStyleSheet("background-color:white;");
     _motionCorrectPETButton->setStyleSheet("background-color:white;");
-    _reslicePETButton->setStyleSheet("background-color:white;");
     _alignPETButton->setStyleSheet("background-color:white;");
     _analyzeTAC->setStyleSheet("background-color:white;");
     _doEverythingPETButton->setStyleSheet("background-color:white;");
@@ -473,9 +441,9 @@ void MainWindow::finishedApplyingMCToPET(int exitCode, QProcess::ExitStatus exit
     updatePETFileNameBox("mc.nii");  // not really required
     if ( _doEverythingPETButton->isChecked() )
     {
-        if ( petFileExists("mc.nii") || petFileExists("reslice.nii") || petFileExists("align.nii") )
+        if ( petFileExists("mc.nii") || petFileExists("align.nii") )
             _motionCorrectPETButton->setStyleSheet("background-color:lightYellow;");
-        reslicePET();
+        alignPET();
     }
     else
         enablePETActionButtons();
@@ -546,31 +514,6 @@ bool MainWindow::getPETMCInterpolationRequired()
         interpolationRequired |=  _matchingEPI[jFrame].size() == 0;
 }
 
-void MainWindow::reslicePET()
-{
-    FUNC_ENTER;
-    auto *process = new QProcess;
-    _centralWidget->setEnabled(false);
-    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMReslicePET(int, QProcess::ExitStatus)));
-
-    QStringList arguments;
-    arguments.append("-O");
-    arguments.append("reslice");
-    arguments.append("-a");
-    QString templateFileName = _anatomyFileNameForPETReslice;
-    arguments.append(templateFileName);
-    arguments.append("--preprocess");
-    arguments.append("reslice");
-    arguments.append("--output-file");
-    arguments.append("reslice");
-    arguments.append("--quit");
-    QString mcFileName = "pet/" + _petDirBox->currentText() + "/mc.nii";
-    arguments.append(mcFileName);
-    FUNC_INFO << _fastmapProcess << arguments;
-    process->start(_fastmapProcess,arguments);
-
-    FUNC_EXIT;
-}
 void MainWindow::alignPET()
 {
     FUNC_ENTER;
@@ -579,7 +522,7 @@ void MainWindow::alignPET()
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMAlignPET(int, QProcess::ExitStatus)));
 
     QStringList arguments;
-    QString mcFileName = "pet/" + _petDirBox->currentText() + "/reslice.nii";
+    QString mcFileName = "pet/" + _petDirBox->currentText() + "/mc.nii";
     arguments.append(mcFileName);
     arguments.append("-O");
     arguments.append("alignment");
@@ -600,21 +543,6 @@ void MainWindow::alignPET()
     FUNC_EXIT;
 }
 
-void MainWindow::finishedFMReslicePET(int exitCode, QProcess::ExitStatus exitStatus )
-{
-    FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
-    _centralWidget->setEnabled(true);
-    showBrowser(false);
-    updatePETFileNameBox("reslice.nii");  // not really required
-    if ( _doEverythingPETButton->isChecked() )
-    {
-        if ( petFileExists("reslice.nii") )
-            _reslicePETButton->setStyleSheet("background-color:lightYellow;");
-        alignPET();
-    }
-    else
-        enablePETActionButtons();
-}
 void MainWindow::finishedFMAlignPET(int exitCode, QProcess::ExitStatus exitStatus )
 {
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
