@@ -425,6 +425,8 @@ void MainWindow::finishedLinkResliceEPI(int exitCode, QProcess::ExitStatus exitS
     if ( _doEverythingEPIButton->isChecked() )
     {
         _resliceEPIButton->setStyleSheet("background-color:lightYellow;");
+        _motionCorrectEPIButton->setStyleSheet("background-color:white;");
+        _alignEPIButton->setStyleSheet("background-color:white;");
         enableEPIActionButtons();
         motionCorrectEPI();
     }
@@ -550,6 +552,7 @@ void MainWindow::finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exi
     if ( _doEverythingEPIButton->isChecked() )
     {
         _motionCorrectEPIButton->setStyleSheet("background-color:lightYellow;");
+        _alignEPIButton->setStyleSheet("background-color:white;");
         alignEPI();
     }
     else
