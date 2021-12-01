@@ -11,39 +11,52 @@ void MainWindow::createfMRIPage()
     connect(_fMRIRunItemBox, SIGNAL(itemChanged(QListWidgetItem*)),this, SLOT(changedfMRIRunCheckBox(QListWidgetItem*)));
 //    _fMRIRunItems = new QVector<QListWidgetItem *>;
 
-    auto *runsLayout = new QVBoxLayout();
-    runsLayout->addWidget(_fMRIRunItemBox);
+    auto *dirLayout = new QVBoxLayout();
+    dirLayout->addWidget(_fMRIRunItemBox);
 
-    auto *templateLabel = new QLabel("template directory");
     auto *fileLabel     = new QLabel("file name(s)");
-    auto *rangeLabel    = new QLabel("averaging range for template");
-    _fMRITemplateDirBox = new QComboBox();
     _fMRIFileBox        = new QComboBox();
-    _fMRIMCRange        = new QLineEdit("1-10");
-    connect(_fMRITemplateDirBox, SIGNAL(activated(int)),this, SLOT(changefMRITemplateDirectory(int)));
-    connect(_fMRIFileBox,        SIGNAL(activated(int)),this, SLOT(changedfMRIFileName(int)));
+    connect(_fMRIFileBox,  SIGNAL(activated(int)),this, SLOT(changedfMRIFileName(int)));
 
     auto *fileLayout = new QGridLayout();
-    fileLayout->addWidget(templateLabel,0,0);
-    fileLayout->addWidget(_fMRITemplateDirBox,0,1);
-    fileLayout->addWidget(rangeLabel,1,0);
-    fileLayout->addWidget(_fMRIMCRange,1,1);
-    fileLayout->addWidget(fileLabel,2,0);
-    fileLayout->addWidget(_fMRIFileBox,2,1);
+    fileLayout->addWidget(fileLabel,0,0);
+    fileLayout->addWidget(_fMRIFileBox,0,1);
 
     auto *displayButton = new QPushButton("display file(s) with fastmap");
     connect(displayButton, SIGNAL(pressed()), this, SLOT(displayEPI()));
-    auto *displayLayout = new QVBoxLayout();
-    displayLayout->addWidget(displayButton);
 
-    auto *setupLayout = new QVBoxLayout();
-    setupLayout->addLayout(runsLayout);
-    setupLayout->addLayout(fileLayout);
-    setupLayout->addLayout(displayLayout);
-
+    auto *runsLayout = new QVBoxLayout();
+    runsLayout->addLayout(dirLayout);
+    runsLayout->addLayout(fileLayout);
+    runsLayout->addWidget(displayButton);
     auto *runsBox = new QGroupBox("List of EPI runs to include in analysis");
-    runsBox->setLayout(setupLayout);
-//    runsBox->setStyleSheet("border: 1px dotted gray");
+    runsBox->setLayout(runsLayout);
+
+    auto *templateLabel = new QLabel("directory");
+    auto *rangeLabel    = new QLabel("averaging range");
+    _fMRITemplateDirBox = new QComboBox();
+    connect(_fMRITemplateDirBox, SIGNAL(activated(int)),this, SLOT(changefMRITemplateDirectory(int)));
+    _fMRIMCRange        = new QLineEdit("1-10");
+    _fMRITemplateDirBox->setMaximumWidth(150);
+    _fMRIMCRange->setMaximumWidth(150);
+
+    auto *mcLayout = new QGridLayout();
+    mcLayout->addWidget(templateLabel,0,0);
+    mcLayout->addWidget(_fMRITemplateDirBox,0,1);
+    mcLayout->addWidget(rangeLabel,0,2);
+    mcLayout->addWidget(_fMRIMCRange,0,3);
+    auto *mcBox = new QGroupBox("Motion-correction template");
+    mcBox->setLayout(mcLayout);
+
+    auto *smoothingLabel = new QLabel("post-alignment smoothing width");
+    _smoothingfMRI = new QLineEdit("0.");
+    _smoothingfMRI->setMaximumWidth(150);
+    connect(_smoothingfMRI, SIGNAL(editingFinished()), this, SLOT(changedSmoothingfMRI()));
+    auto *alignLayout = new QGridLayout();
+    alignLayout->addWidget(smoothingLabel,0,0);
+    alignLayout->addWidget(_smoothingfMRI,0,1);
+    auto *alignBox = new QGroupBox("Alignment to template space");
+    alignBox->setLayout(alignLayout);
 
     _doEverythingEPIButton  = new QPushButton("do everything",_fmriPage);
     _doEverythingEPIButton->setEnabled(false);
@@ -63,11 +76,13 @@ void MainWindow::createfMRIPage()
     actionLayout->addWidget(_motionCorrectEPIButton);
     actionLayout->addWidget(_alignEPIButton);
 
-    auto *fMRIActionBox = new QGroupBox("Process EPI runs");
-    fMRIActionBox->setLayout(actionLayout);
+    auto *actionBox = new QGroupBox("Process EPI runs");
+    actionBox->setLayout(actionLayout);
     auto *pageLayout = new QVBoxLayout();
     pageLayout->addWidget(runsBox);
-    pageLayout->addWidget(fMRIActionBox);
+    pageLayout->addWidget(mcBox);
+    pageLayout->addWidget(alignBox);
+    pageLayout->addWidget(actionBox);
     _fmriPage->setLayout(pageLayout);
 }
 
@@ -88,6 +103,7 @@ void MainWindow::doEverthingEPI()
 
 void MainWindow::changedfMRIRunCheckBox(QListWidgetItem *item)
 {
+    FUNC_ENTER << _fMRIRunItems.size();
     int iSelected=-1;
     for ( int jItem=0; jItem<_fMRIRunItems.size(); jItem++)
     {
@@ -113,6 +129,11 @@ void MainWindow::changedfMRIRunCheckBox(QListWidgetItem *item)
         changefMRITemplateDirectory(iSelected);
     }
     enableEPIActionButtons();
+
+    for (int jFile=0; jFile<_fMRIRunItems.size(); jFile++)
+    {
+        FUNC_INFO << "check state" << jFile << _fMRIRunItems[jFile].checkState();
+    }
 }
 
 void MainWindow::changefMRITemplateDirectory(int indexInBox)
@@ -171,6 +192,14 @@ void MainWindow::openedfMRIPage()
     _fMRITemplateDirBox->setCurrentIndex(iTemplate);
     changefMRITemplateDirectory(_fMRITemplateDirBox->currentIndex());
     populateEPIFileNameBox();
+
+    QString range = readJipCommandFileForMCAveraging();
+    FUNC_INFO << "range =" << range;
+    _fMRIMCRange->setText(range);
+
+    readSmoothing(0);
+    readSmoothing(1);
+    readSmoothing(2);
 
     enableEPIActionButtons();
 
@@ -379,6 +408,7 @@ void MainWindow::resliceEPI()
         }
     }
     FUNC_INFO << _fastmapProcess << arguments;
+    qInfo() <<  _fastmapProcess << arguments;
     process->start(_fastmapProcess,arguments);
 
     FUNC_EXIT;
@@ -410,6 +440,7 @@ void MainWindow::finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitSta
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
             this, SLOT(finishedLinkResliceEPI(int, QProcess::ExitStatus)));
 
+    qInfo() <<  exe << arguments;
     process->start(exe,arguments);
 }
 
@@ -471,8 +502,10 @@ void MainWindow::alignEPI()
         arguments.append("-a");
         arguments.append(individualAnatomy);
     }
-    for (int jFile=0; jFile<_fMRIFiles.size(); jFile++)
+    FUNC_INFO << "set args" << _fMRIRunItems.size();
+    for (int jFile=0; jFile<_fMRIRunItems.size(); jFile++)
     {
+        FUNC_INFO << "check state" << jFile << _fMRIRunItems[jFile].checkState();
         bool includeFile = _fMRIRunItems[jFile].checkState();
         if ( includeFile )
             arguments.append(_fMRIFiles[jFile].name);
@@ -490,6 +523,7 @@ void MainWindow::alignEPI()
         arguments.append(comName);
     }
     FUNC_INFO << _fastmapProcess << arguments;
+    qInfo() <<  _fastmapProcess << arguments;
     process->start(_fastmapProcess,arguments);
 
     QMessageBox msgBox;
@@ -517,8 +551,43 @@ void MainWindow::finishedFMAlignEPI(int exitCode, QProcess::ExitStatus exitStatu
     }
 }
 
+void MainWindow::writeJipCommandFileForMCAveraging()
+{
+    FUNC_ENTER;
+    QString fileName = "epi/" + _fMRITemplateDirBox->currentText() + "/makeMCTemplate.com";
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+    QTextStream out(&file);
+
+    out << "# create template file for motion-correction" << "\n";
+    QString inputFileName  = "epi/" + _fMRITemplateDirBox->currentText() + "/" + _fMRIFileBox->currentText();
+    QString outputFileName = "epi/" + _fMRITemplateDirBox->currentText() + "/mcTemplate.nii";
+    out << "read " << inputFileName << ">" << _fMRIMCRange->text() << " all\n";
+    out << "average av\n";
+    out << "write " << outputFileName << " av\n";
+    out << "bye\n";
+    file.close();
+}
+
+QString MainWindow::readJipCommandFileForMCAveraging()
+{
+    QString range = "1-10";  // default
+
+    QString fileName = "epi/" + _fMRITemplateDirBox->currentText() + "/makeMCTemplate.com";
+    QString argument = readFileTextArgument(fileName, "read");
+
+    FUNC_INFO << "read subject" << argument;
+    QStringList subList = argument.split(QRegularExpression(">"));
+    FUNC_INFO << "subList" << subList;
+    if ( subList.size() > 1 ) range = subList.at(1);
+    return range;
+}
+
 void MainWindow::motionCorrectEPI()
 {
+    writeJipCommandFileForMCAveraging();
+
     auto *process = new QProcess;
     _outputBrowser->setWindowTitle("Motion-correct EPI");
     showBrowser(true);
@@ -531,7 +600,8 @@ void MainWindow::motionCorrectEPI()
     QStringList arguments;
     // arguments: [MC template dir] [template range (e.g. 1-10)] [list of files: "epi/011/reslice.nii ..."]
     arguments.append(_fMRITemplateDirBox->currentText());
-    arguments.append(_fMRIMCRange->text());
+    QString comFileName = "epi/" + _fMRITemplateDirBox->currentText() + "/makeMCTemplate.com";
+    arguments.append(comFileName);
     // list of EPI directories to motion-correct ...
     for (int jFile=0; jFile<_fMRIFiles.size(); jFile++)
     {

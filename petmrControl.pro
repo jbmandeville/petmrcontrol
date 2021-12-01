@@ -3,7 +3,7 @@
 # Project created by QtCreator 2021-10-21T10:52:46
 #
 #-------------------------------------------------
-DEFINES += QT_NO_DEBUG_OUTPUT
+#DEFINES += QT_NO_DEBUG_OUTPUT
 
 QT       += core gui concurrent widgets
 

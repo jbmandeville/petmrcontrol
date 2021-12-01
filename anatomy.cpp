@@ -18,6 +18,7 @@ void MainWindow::createAnatomyPage()
 
     auto *displayButton = new QPushButton("display file (fastmap)");
     connect(displayButton, SIGNAL(pressed()), this, SLOT(displayAnatomy()));
+    displayButton->setToolTip("Display file listed above");
 
     auto *displayLayout = new QVBoxLayout();
     displayLayout->addWidget(displayButton);
@@ -45,6 +46,7 @@ void MainWindow::createAnatomyPage()
     setupFreeSurferLayout->addWidget(_subjectIDFreeSurfer,0,1);
 
     _runFreeSurferButton       = new QPushButton("Run FreeSurfer (raw --> brain)",_anatomyPage);
+    _runFreeSurferButton->setToolTip("Run freeSurfer recon-all");
     connect(_runFreeSurferButton, SIGNAL(pressed()), this, SLOT(runFreeSurfer()));
 
     auto *freeSurferLayout = new QVBoxLayout();
@@ -60,26 +62,27 @@ void MainWindow::createAnatomyPage()
     ////////////////////////////////////////////////
     auto *templateDirLabel    = new QLabel("Template directory: ",_anatomyPage);
     _anatomyTemplateDirectory = new QComboBox();
-    int iSelection = 0;
-    FUNC_INFO << "save template" << _savedSettings.lastTemplateDirectory;
     for (int jList=0; jList<_FastmapMSTemplateDirectories.count(); jList+=2)
-    {
         _anatomyTemplateDirectory->addItem(_FastmapMSTemplateDirectories.at(jList));
-        if ( !_savedSettings.lastTemplateDirectory.compare(_FastmapMSTemplateDirectories.at(jList)) )
-            iSelection = jList/2;
-    }
-    _anatomyTemplateDirectory->setCurrentIndex(iSelection);
+    _anatomyTemplateDirectory->setCurrentIndex(0);
+    connect(_anatomyTemplateDirectory, SIGNAL(activated(int)),this, SLOT(writeSubjectVariables()));
 
     auto *anatomyFileLayout = new QGridLayout();
     anatomyFileLayout->addWidget(templateDirLabel,0,0);
     anatomyFileLayout->addWidget(_anatomyTemplateDirectory,0,1);
     anatomyFileLayout->setSpacing(0);
 
+    _smoothingAnatomy = new QLineEdit("0.");
+    connect(_smoothingAnatomy, SIGNAL(editingFinished()), this, SLOT(changedSmoothingAnatomy()));
+
     auto *anatomyAlignmentLayout = new QVBoxLayout();
     _alignAnatomyButton  = new QPushButton("Align to template (raw/brain --> align)",_anatomyPage);
     connect(_alignAnatomyButton, SIGNAL(pressed()), this, SLOT(alignAnatomyToTemplate()));
+    _alignAnatomyButton->setToolTip("Align to the multi-subject template" + _anatomyTemplateDirectory->currentText());
+
     _extractFreeSurferOverlaysButton  = new QPushButton("extract freeSurfer ROIs from atlas file)",_anatomyPage);
     connect(_extractFreeSurferOverlaysButton, SIGNAL(pressed()), this, SLOT(extractFreeSurferOverlays()));
+    _extractFreeSurferOverlaysButton->setToolTip("Move freeSurfer segmented ROIs to template space.");
 
     anatomyAlignmentLayout->addLayout(anatomyFileLayout);
     anatomyAlignmentLayout->addWidget(_alignAnatomyButton);
@@ -89,10 +92,7 @@ void MainWindow::createAnatomyPage()
     anatomyAlignmentBox->setLayout(anatomyAlignmentLayout);
 //    anatomyAlignmentBox->setStyleSheet("border: 1px dotted gray");
 
-    QString freeDir = "free";
-    QFileInfo checkDir(freeDir);
-    if (checkDir.exists() && checkDir.isDir())
-        getSubjectNameFromFreeDir();    // get subject name
+    getSubjectNameFromFreeDir();    // get subject name
 
     ////////////////////////////////////////////////
     // full page layout
@@ -118,9 +118,7 @@ void MainWindow::getSubjectNameFromFreeDir()
         _subjectIDFreeSurfer->setText(folderList.at(0));
         QDir thisDir = QDir::currentPath();
         QStringList subDirs = thisDir.absolutePath().split("/");
-        FUNC_INFO << subDirs;
         int nList = qMin(3,subDirs.count());
-        FUNC_INFO << "nList" << nList;
         QString list;  list.append("[..]/");
         for (int jList=nList; jList>0; jList--)
         {
@@ -129,6 +127,19 @@ void MainWindow::getSubjectNameFromFreeDir()
         }
         _queryDownloadGroupBox->setEnabled(false);
         setWindowTitle(QString("subject %1 @ %2").arg(_subjectIDFreeSurfer->text()).arg(list));
+    }
+    else
+    { // freeSurfer directory does not exist: just use directory
+        QDir thisDir = QDir::currentPath();
+        QStringList subDirs = thisDir.absolutePath().split("/");
+        int nList = qMin(3,subDirs.count());
+        QString list;  list.append("[..]/");
+        for (int jList=nList; jList>0; jList--)
+        {
+            list.append(subDirs.at(subDirs.count()-jList));
+            if ( jList != 1 ) list.append("/");
+        }
+        setWindowTitle(QString("%1").arg(list));
     }
     enableAnatomyActionButtons();
 }
@@ -149,6 +160,10 @@ void MainWindow::openedAnatomyPage()
     for (int jList=0; jList<folderList.size(); jList++)
         _anatomyDirBox->addItem(folderList.at(jList));
     _anatomyDirBox->setCurrentIndex(_anatomyDirBox->count()-1);
+
+    readSmoothing(0);
+    readSmoothing(1);
+    readSmoothing(2);
 
 //    changedAnatomyDirName(_anatomyDirBox->currentIndex());
 }
@@ -243,6 +258,15 @@ void MainWindow::alignAnatomyToTemplate()
     arguments.append(_anatomyTemplateDirectory->currentText());
     arguments.append("--output-file");
     arguments.append("align");
+
+    if ( anatomyFileExists("align.com") )
+    {
+        QString comName = "t1/" + _anatomyDirBox->currentText() + "/align.com";
+        arguments.append("-I");
+        arguments.append(comName);
+    }
+
+
     qInfo() << _fastmapProcess << arguments;
     process->start(_fastmapProcess,arguments);
 
@@ -361,6 +385,9 @@ void MainWindow::displayAnatomy()
 
     if ( !rootFileName.compare("align.nii") )
     {
+        arguments.append("-T");
+        arguments.append(_anatomyTemplateDirectory->currentText());
+
         QString ovlListName = "t1/" + _anatomyDirBox->currentText() + "/templateOverlaysFromFreeSurfer/overlay-list.dat";
         QFileInfo checkFile(ovlListName);
         if ( checkFile.exists() && checkFile.isFile() )

@@ -21,7 +21,6 @@
 ////////////////////////////////////////////////////
 // Global variables:
 // 1) multi-subject template directory (currently qsettings; should be local)
-// 2) smoothing
 //
 // TO DO:
 // 1) PET page: need to make file type variable (in case "raw.nii" is deleted)
@@ -133,17 +132,19 @@ private:
     QPushButton *_runFreeSurferButton;
     QPushButton *_alignAnatomyButton;
     QPushButton *_extractFreeSurferOverlaysButton;
+    QLineEdit *_smoothingAnatomy;
 
     // fMRI page
     QListWidget *_fMRIRunItemBox;
     QVector<QListWidgetItem> _fMRIRunItems;
     QComboBox *_fMRITemplateDirBox; // an existing directory
-    QComboBox *_fMRIFileBox;          // "raw.nii or "mc.nii"
+    QComboBox *_fMRIFileBox;          // "raw.nii or "mrangeLabelc.nii"
     QLineEdit *_fMRIMCRange;              // e.g. 1-10
     QPushButton *_doEverythingEPIButton;
     QPushButton *_resliceEPIButton;
     QPushButton *_motionCorrectEPIButton;
     QPushButton *_alignEPIButton;
+    QLineEdit *_smoothingfMRI;
 
     // PET page
     QComboBox *_petDirBox;
@@ -153,6 +154,7 @@ private:
     QLabel *_fMRIForPETTemplate;
     QLabel *_fMRIForPETFileName;
     QString _alignFileNameForPETRegistration;
+    QLineEdit *_smoothingPET;
     QPushButton *_doEverythingPETButton;
     QPushButton *_motionCorrectMatchingMRIButton;
     QPushButton *_motionCorrectPETButton;
@@ -170,7 +172,6 @@ private:
 
     // non-GUI variables
     QVector<downloadScan> _scans;
-    QString _lastTemplateDirectory;   // this should be written locally, not read from qsettings
     QVector<FourDFile> _fMRIFiles;
     QVector<FourDFile> _fMRIFilesForPETMC;
     FourDFile _petFile;
@@ -194,8 +195,11 @@ private:
     void getSubjectNameFromFreeDir();
     void readAvailableScanList();
     void readUnpackLog();
+    QString readFileTextArgument(QString fileName, QString parameterName);
     bool enableDownloadData();
     void reformatAcquisitionTimes(downloadScan scan);
+    void readSubjectVariables();
+    void readSmoothing(int which);
 
     void setupScanTypes();
 
@@ -204,6 +208,8 @@ private:
     void populateEPIFileNameBox();
     void setDefaultIndexEPIFileNameBox();
     void updateEPIFileNameBox(QString fileName);
+    void writeJipCommandFileForMCAveraging();
+    QString readJipCommandFileForMCAveraging();
 
     void updatePETFileNameBox(QString fileName);
     void updatePETFileNameBox();
@@ -228,6 +234,7 @@ private:
     bool anatomyFileExists(QString dirName, QString fileName);
     bool epiFileExists(QString dirName, QString fileName);
     bool petFileExists(QString dirName, QString fileName);
+    QString alignCOMFileName(int which);
 
     void enableEPIActionButtons();
     void enableAnatomyActionButtons();
@@ -286,6 +293,7 @@ private slots:
     void runFreeSurfer();
     void finishedRunFreeSurfer(int exitCode, QProcess::ExitStatus exitStatus );
     void displayAnatomy();
+    void writeSubjectVariables();
 
     void doEverthingEPI();
     void resliceEPI();
@@ -298,7 +306,10 @@ private slots:
     void finishedFMAlignEPI(int exitCode, QProcess::ExitStatus exitStatus );
     void changedfMRIRunCheckBox(QListWidgetItem* item);
     void changedDownloadScanCheckBox(QListWidgetItem *item);
-    
+    void changedSmoothingAnatomy();
+    void changedSmoothingfMRI();
+    void changedSmoothingPET();
+
     void finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus);
     void displayEPI();
 

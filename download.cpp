@@ -7,7 +7,7 @@ void MainWindow::createDownloadPage()
     _downLoadPage = new QWidget();
 
     auto *queryLayout = new QGridLayout();
-    auto *subjectIDLabel     = new QLabel("Download ID",_downLoadPage);
+    auto *subjectIDLabel     = new QLabel("Download search string",_downLoadPage);
     _subjectIDDownload   = new QLineEdit("?");
     queryLayout->addWidget(subjectIDLabel,0,0);
     queryLayout->addWidget(_subjectIDDownload,0,1);
@@ -29,6 +29,7 @@ void MainWindow::createDownloadPage()
     connect(_querySubjectButton, SIGNAL(pressed()), this, SLOT(queryDownloadPaths()));
     queryLayout->addWidget(queryDatabaseLabel,3,0);
     queryLayout->addWidget(_querySubjectButton,3,1);
+    _querySubjectButton->setToolTip("Find all download paths that contain the given download ID.");
 
     _queryDownloadGroupBox = new QGroupBox("Query database and define download path");
     _queryDownloadGroupBox->setLayout(queryLayout);
@@ -36,6 +37,7 @@ void MainWindow::createDownloadPage()
     _generateScanListButton = new QPushButton("Generate scan list",_downLoadPage);
     connect(_generateScanListButton, SIGNAL(pressed()), this, SLOT(generateScanList()));
     _generateScanListButton->setEnabled(false);
+    _generateScanListButton->setToolTip("Generate a list of available runs from the given download path.");
 
     _scanItemsBox = new QListWidget();
     _scanItemsBox->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::MinimumExpanding);
@@ -51,6 +53,7 @@ void MainWindow::createDownloadPage()
 
     _downloadDataButton = new QPushButton("Download",_downLoadPage);
     connect(_downloadDataButton, SIGNAL(pressed()), this, SLOT(downloadData()));
+    _downloadDataButton->setToolTip("Download all scans that are checked in the box above.");
 
     auto *downloadLayout = new QVBoxLayout();
     downloadLayout->addWidget(_downloadDataButton);
@@ -62,9 +65,6 @@ void MainWindow::createDownloadPage()
     pageLayout->addWidget(runsBox);
     pageLayout->addWidget(downloadBox);
     _downLoadPage->setLayout(pageLayout);
-
-    readUnpackLog();
-    readAvailableScanList();
 
     QString downFile = "download-list.dat";
     QFileInfo checkDownFile(downFile);
@@ -236,13 +236,15 @@ void MainWindow::readAvailableScanList()
             QFileInfo checkDir(dirname);
             if (checkDir.exists() && checkDir.isDir())
             {
+                FUNC_INFO << "exists on disk";
                 scan.existsOnDisk        = true;
                 scan.selectedForDownload = false;
             }
             else
             {
+                FUNC_INFO << "does not exist on disk";
                 scan.existsOnDisk        = false;
-                scan.selectedForDownload = true;
+                scan.selectedForDownload = scan.category != category_UNKNOWN;
             }
             _scans.append(scan);
         }
@@ -258,7 +260,10 @@ void MainWindow::readAvailableScanList()
         QString text = QString("%1 (%2) %3 %4x%5x%6, %7 %8").arg(scan.scanNumberNew).arg(scan.categoryName).arg(scan.sequenceName)
                 .arg(scan.dim.x).arg(scan.dim.y).arg(scan.dim.z).arg(scan.dim.t).arg(volumes);
         _scanItems[jList].setText(text);
-        _scanItems[jList].setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
+        if ( scan.category == category_UNKNOWN )
+            _scanItems[jList].setFlags(Qt::ItemIsUserCheckable);
+        else
+            _scanItems[jList].setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
         if ( scan.selectedForDownload )
             _scanItems[jList].setCheckState(Qt::Checked);
         else
@@ -291,38 +296,32 @@ void MainWindow::readUnpackLog()
     if ( !(checkUnpackLog.exists() && checkUnpackLog.isFile()) )
         return;
 
-    // Read the time model file
-    QFile infile(unpackLog);
-    if (!infile.open(QIODevice::ReadOnly | QIODevice::Text))
-        return;
-    QTextStream in_stream(&infile);
-
-    int iLine=0;
-    while (!in_stream.atEnd())
+    FUNC_INFO << "read unpack -src";
+    QString sourceName = readFileTextArgument("unpack.log", "-src");
+    if ( !sourceName.isEmpty() )
     {
-        iLine++;
-        downloadScan scan;
-        QString line = in_stream.readLine();
-        QStringList stringList = line.split(QRegularExpression("\\s+"));
-        FUNC_INFO << stringList << stringList;
-        int iPatient=stringList.indexOf("PatientName");
-        if ( iPatient >= 0 && iPatient < stringList.size()-1 )
-        {
-            FUNC_INFO << "add subject" << stringList.at(iPatient+1);
-            _downloadIDBox->addItem(stringList.at(iPatient+1));
-            _queryDownloadGroupBox->setEnabled(false);
-            _queryDownloadGroupBox->setStyleSheet("background-color:lightYellow;");
-        }
-        int iSrc=stringList.indexOf("-src");
-        FUNC_INFO << stringList << "iSrc" << iSrc;
-        if ( iSrc >= 0 && iSrc < stringList.size()-1 )
-        {
-            FUNC_INFO << "add path" << iSrc+1 << "size" << stringList.size();
-            _downloadPathBox->addItem(stringList.at(iSrc+1));
-            _queryDownloadGroupBox->setEnabled(false);
-            _queryDownloadGroupBox->setStyleSheet("background-color:lightYellow;");
-            _generateScanListButton->setEnabled(true);
-        }
+        FUNC_INFO << "add path" << sourceName;
+        _downloadPathBox->addItem(sourceName);
+        _queryDownloadGroupBox->setEnabled(false);
+        _queryDownloadGroupBox->setStyleSheet("backgound-color:lightYellow;");
+        _generateScanListButton->setEnabled(true);
+    }
+
+    FUNC_INFO << "read unpack PatientName";
+    QString patientName = readFileTextArgument("unpack.log", "PatientName");
+    FUNC_INFO << "patientName" << patientName << patientName.isEmpty();
+    if ( patientName.isEmpty() )
+    {
+        QString fileName = "t1/" + _anatomyDirBox->currentText() + "/raw.nii-infodump.dat";
+        FUNC_INFO << "read" << fileName;
+        patientName = readFileTextArgument(fileName, "PatientName");
+    }
+    if ( !patientName.isEmpty() )
+    {
+        FUNC_INFO << "add subject" << patientName;
+        _downloadIDBox->addItem(patientName);
+        _queryDownloadGroupBox->setEnabled(false);
+        _queryDownloadGroupBox->setStyleSheet("background-color:lightYellow;");
     }
 }
 

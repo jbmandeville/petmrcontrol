@@ -9,9 +9,11 @@ void MainWindow::createPETPage()
     auto *petRunLabel = new QLabel("PET run");
     _petDirBox = new QComboBox();
     connect(_petDirBox, SIGNAL(currentIndexChanged(int)),this, SLOT(updatePETDirBox(int)));
+    _petDirBox->setToolTip("Sub-directory for PET that contains raw, mc, or align NIFTI");
 
     auto *petFileName = new QLabel("file name");
     _petFileBox = new QComboBox();
+    _petDirBox->setToolTip("File name: raw, mc, or align NIFTI");
 //    connect(_petDirBox, SIGNAL(activated(int)),this, SLOT(updatePETFileBox(int)));
 
     auto *petRunLayout = new QGridLayout();
@@ -40,6 +42,10 @@ void MainWindow::createPETPage()
     auto *fileLabel     = new QLabel("fMRI file name(s) for motion-correction");
     _fMRIForPETTemplate = new QLabel("");
     _fMRIForPETFileName = new QLabel("");
+
+    _smoothingPET = new QLineEdit("0.");
+    _smoothingPET->setMaximumWidth(150);
+    connect(_smoothingPET, SIGNAL(editingFinished()), this, SLOT(changedSmoothingPET()));
 
     _doEverythingPETButton = new QPushButton("Do everything (no interaction required)");
     _doEverythingPETButton->setEnabled(false);
@@ -252,6 +258,11 @@ void MainWindow::openedPETPage()
 
     FUNC_INFO << "petDirBox text #1" << _petDirBox->currentText() << _petDirBox->currentIndex();
     updatePETDirBox(_petDirBox->currentIndex());
+
+    readSmoothing(0);
+    readSmoothing(1);
+    readSmoothing(2);
+
     enablePETActionButtons();
 
     FUNC_EXIT;

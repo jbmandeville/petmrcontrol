@@ -102,15 +102,199 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     _outputBrowser->resize(defaultWindowSize);
     */
 
+    openedAnatomyPage();
+    readUnpackLog();
+    readAvailableScanList();
+    readSubjectVariables();
+
     restoreGeometry(_savedSettings.imageWindowGeometry);
     _outputBrowser->restoreGeometry(_savedSettings.browserWindowGeometry);
+}
 
+void MainWindow::readSubjectVariables()
+{
+    FUNC_ENTER;
+    QString fileName = "analyze.dat";
+    QFileInfo checkFile(fileName);
+    if ( !(checkFile.exists() && checkFile.isFile()) )
+        return;
+
+    // Read the time model file
+    QFile infile(fileName);
+    if (!infile.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+    QTextStream in_stream(&infile);
+
+    int iLine=0;
+    QString templateID;
+    while (!in_stream.atEnd())
+    {
+        iLine++;
+        QString line = in_stream.readLine();
+        QStringList stringList = line.split(QRegularExpression("\\s+"));
+        if ( stringList.isEmpty() ) continue;
+        QString variable = stringList.at(0);
+        FUNC_INFO << variable << stringList.count();
+        if ( !variable.compare("multi-subject-template") && stringList.count() > 1 )
+            templateID = stringList.at(1);
+        if ( !variable.compare("analysis-type") && stringList.count() > 1 )
+        {
+            QString type = stringList.at(1);
+            FUNC_INFO << type;
+            if ( !type.compare("nhp-bay7") )
+                _radioButtonNHPBay7->setChecked(true);
+            else if ( !type.compare("nhp-bay6") )
+                _radioButtonNHPBay6->setChecked(true);
+            else
+                _radioButtonHumanBay7->setChecked(true);
+        }
+    }
+    infile.close();
+
+    // find the template directory
+    int iSelection = 0;
+    FUNC_INFO << "save template" << templateID;
+    for (int jList=0; jList<_FastmapMSTemplateDirectories.count(); jList+=2)
+    {
+        if ( !templateID.compare(_FastmapMSTemplateDirectories.at(jList)) )
+            iSelection = jList/2;
+    }
+    _anatomyTemplateDirectory->setCurrentIndex(iSelection);
+    FUNC_EXIT;
+}
+void MainWindow::writeSubjectVariables()
+{
+    FUNC_ENTER;
+    QString fileName = "analyze.dat";
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+    QTextStream out(&file);
+
+    out << "# analysis variables for this session" << "\n";
+    out << "multi-subject-template " << _anatomyTemplateDirectory->currentText() << "\n";
+    if ( _radioButtonHumanBay7->isChecked() )
+        out << "analysis-type human-bay7\n";
+    else if ( _radioButtonNHPBay6->isChecked() )
+        out << "analysis-type nhp-bay6\n";
+    else
+        out << "analysis-type nhp-bay7\n";
+    file.close();
+}
+
+void MainWindow::readSmoothing(int which)
+{ // which: 0=anatomy, 1=fMRI, 2=pet
+    QString fileName = alignCOMFileName(which);
+    FUNC_ENTER << which << fileName;
+    QString argument = readFileTextArgument(fileName, "smoothing");
+    if ( !argument.isEmpty() )
+    {
+        FUNC_INFO << "argument" << argument;
+        bool ok;
+        double smoothing = argument.toDouble(&ok);
+        if ( !ok ) smoothing = 0.;
+        QString number; number.setNum(smoothing);
+        FUNC_INFO << "number" << number;
+        if ( which == 0 )
+        {
+            _smoothingAnatomy->setText(number);
+            _smoothingfMRI->setText(number);
+            _smoothingPET->setText(number);
+        }
+        else if ( which == 1 )
+        {
+            _smoothingfMRI->setText(number);
+            _smoothingPET->setText(number);
+        }
+        else
+            _smoothingPET->setText(number);
+    }
+}
+
+QString MainWindow::readFileTextArgument(QString fileName, QString parameterName)
+{
+    QFileInfo checkFile(fileName);
+    if ( !(checkFile.exists() && checkFile.isFile()) )
+        return "";
+
+    QFile infile(fileName);
+    if (!infile.open(QIODevice::ReadOnly | QIODevice::Text))
+        return "";
+    QTextStream in_stream(&infile);
+
+    int iLine=0;
+    while (!in_stream.atEnd())
+    {
+        iLine++;
+        QString line = in_stream.readLine();
+        if ( line.isEmpty() ) continue;
+        FUNC_INFO << "line" << line;
+        QStringList stringList = line.split(QRegularExpression("\\s+"));
+        FUNC_INFO << stringList << stringList;
+        int iParameter=stringList.indexOf(parameterName);
+        FUNC_INFO << "iParameter" << iParameter;
+        if ( iParameter >= 0 && iParameter < stringList.size()-1 )
+        {
+            FUNC_INFO << "read iParameter";
+            return stringList.at(iParameter+1);
+        }
+    }
+    infile.close();
+    FUNC_EXIT;
+    return "";
+}
+
+QString MainWindow::alignCOMFileName(int which)
+{ // which: 0=anatomy, 1=fMRI, 2=pet
+    FUNC_ENTER << which << _fMRITemplateDirBox->count();
+    QString fileName = "";
+    if ( which == 0 && anatomyFileExists("align.com") )
+        fileName = "t1/" + _anatomyDirBox->currentText() + "/align.com";
+    else if ( which == 1 && epiFileExists("align.com") )
+        fileName = "epi/" + _fMRITemplateDirBox->currentText() + "/align.com";
+    else if ( which ==2 && petFileExists("align.com") )
+        fileName = "pet/" + _petDirBox->currentText() + "/align.com";
+    return fileName;
+}
+
+void MainWindow::changedSmoothingAnatomy()
+{
+    bool ok;
+    double smoothing = _smoothingAnatomy->text().toDouble(&ok);
+    if ( !ok ) smoothing = 0.;
+    QString number; number.setNum(smoothing);
+    _smoothingAnatomy->setText(number);
+    _smoothingfMRI->setText(number);
+    _smoothingPET->setText(number);
+}
+
+void MainWindow::changedSmoothingfMRI()
+{
+    bool ok;
+    double smoothing = _smoothingfMRI->text().toDouble(&ok);
+    if ( !ok ) smoothing = 0.;
+    QString number; number.setNum(smoothing);
+    _smoothingAnatomy->setText(number);
+    _smoothingfMRI->setText(number);
+    _smoothingPET->setText(number);
+}
+
+void MainWindow::changedSmoothingPET()
+{
+    bool ok;
+    double smoothing = _smoothingPET->text().toDouble(&ok);
+    if ( !ok ) smoothing = 0.;
+    QString number; number.setNum(smoothing);
+    _smoothingAnatomy->setText(number);
+    _smoothingfMRI->setText(number);
+    _smoothingPET->setText(number);
 }
 
 void MainWindow::dataOriginChanged()
 {
     _freeSurferGroupBox->setVisible(_radioButtonHumanBay7->isChecked());
     _extractFreeSurferOverlaysButton->setVisible(_radioButtonHumanBay7->isChecked());
+    writeSubjectVariables();
 }
 
 void MainWindow::changedPage(int index)
@@ -148,17 +332,13 @@ void MainWindow::exitApp()
 
 void MainWindow::readQSettings()
 {
-    QString defaultDir = "/homes/deltabp/1/users/public/templates/humanMNI305/2mm";
-    _savedSettings.lastTemplateDirectory = _savedQSettings.value("lastTemplateDirectory",defaultDir).toString();
     QByteArray defaultImageWindowGeometry = saveGeometry();  // defined in ImageWindow constructor
     _savedSettings.imageWindowGeometry    = _savedQSettings.value("imageWindowGeometry",defaultImageWindowGeometry).toByteArray();
     _savedSettings.browserWindowGeometry  = _savedQSettings.value("browserWindowGeometry",defaultImageWindowGeometry).toByteArray();
-    FUNC_INFO << "_lastTemplateDirectory" << _savedSettings.lastTemplateDirectory;
 }
 
 void MainWindow::writeQSettings()
 {
-    _savedQSettings.setValue("lastTemplateDirectory",_anatomyTemplateDirectory->currentText());
     if ( !isMaximized() )
         _savedQSettings.setValue("imageWindowGeometry",saveGeometry());
     if ( !isMaximized() )
