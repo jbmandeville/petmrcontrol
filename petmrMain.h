@@ -36,10 +36,10 @@ class MainWindow : public QMainWindow
 
 private:
 
-    QString _fastmapProcess     = "/homes/1/jbm/space1/dev/build-FM-Desktop_Qt_5_6_2_GCC_64bit-Release/FM";
+    QString _fastmapProcess     = "/usr/pubsw/packages/jip/FM";
     QString _findsessionProcess = "/usr/pubsw/bin/findsession";
     QString _dicomDumpProcess   = "/usr/bin/dcmdump";
-    QString _scriptDirectory    = "/homes/1/jbm/script/analyze-fm/";
+    QString _scriptDirectory    = "/space/deltabp/1/users/public/script/analyze-petmr/";
 
     enum tabPages
     {
@@ -160,6 +160,7 @@ private:
     QPushButton *_motionCorrectPETButton;
     QPushButton *_alignPETButton;
     QPushButton *_analyzeTAC;
+    QGroupBox *_mcPETBox;
 
     // clean page
     QListWidget *_cleanScanTypesBox;
@@ -238,7 +239,6 @@ private:
 
     void enableEPIActionButtons();
     void enableAnatomyActionButtons();
-    void enablePETActionButtons();
 
     void findDICOMs(bool remove);
     void findAuxFiles(bool remove);
@@ -320,6 +320,7 @@ private slots:
     void doEverthingPET();
     void alignPET();
     void analyzeTAC();
+    void enablePETActionButtons();
     void finishedMotionCorrectMatchingMRI(int exitCode, QProcess::ExitStatus exitStatus);
     void finishedApplyingMCToPET(int exitCode, QProcess::ExitStatus exitStatus);
     void finishedFMAlignPET(int exitCode, QProcess::ExitStatus exitStatus );

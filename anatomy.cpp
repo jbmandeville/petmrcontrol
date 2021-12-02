@@ -288,6 +288,7 @@ void MainWindow::finishedFMAnatomyAlignment(int exitCode, QProcess::ExitStatus e
     qInfo() << "finished: alignment";
     qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
     updateAnatomyFileName();
+    enableAnatomyActionButtons();
     _centralWidget->setEnabled(true);
 }
 

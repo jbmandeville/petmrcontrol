@@ -354,11 +354,10 @@ QString MainWindow::getDimensions(QString fileName, iPoint4D &dim)
     if ( checkFile.exists() && checkFile.isFile() )
     {
         ImageIO file;
-        if ( !file.readFileHeader(fileName,true) )
+        if ( !file.readFileHeader(fileName,false) )
         {
             dim = file.getDimensions();
             dPoint4D res = file.getResolution();
-            qInfo() << "time step" << res.t;
             double duration = dim.t * res.t / 60.;
             QString text = QString("%1 x %2 x %3 with %4 time points (%5 min)")
                     .arg(dim.x).arg(dim.y).arg(dim.z).arg(dim.t).arg(duration);

@@ -303,7 +303,7 @@ void MainWindow::readUnpackLog()
         FUNC_INFO << "add path" << sourceName;
         _downloadPathBox->addItem(sourceName);
         _queryDownloadGroupBox->setEnabled(false);
-        _queryDownloadGroupBox->setStyleSheet("backgound-color:lightYellow;");
+        _queryDownloadGroupBox->setStyleSheet("background-color:lightYellow;");
         _generateScanListButton->setEnabled(true);
     }
 

@@ -10,11 +10,12 @@ void MainWindow::createPETPage()
     _petDirBox = new QComboBox();
     connect(_petDirBox, SIGNAL(currentIndexChanged(int)),this, SLOT(updatePETDirBox(int)));
     _petDirBox->setToolTip("Sub-directory for PET that contains raw, mc, or align NIFTI");
+    _petDirBox->setToolTip("File name: raw, mc, or align NIFTI");
+//    connect(_petDirBox, SIGNAL(activated(int)),this, SLOT(updatePETDirBox(int)));
 
     auto *petFileName = new QLabel("file name");
     _petFileBox = new QComboBox();
-    _petDirBox->setToolTip("File name: raw, mc, or align NIFTI");
-//    connect(_petDirBox, SIGNAL(activated(int)),this, SLOT(updatePETFileBox(int)));
+    connect(_petFileBox, SIGNAL(activated(int)),this, SLOT(enablePETActionButtons()));
 
     auto *petRunLayout = new QGridLayout();
     petRunLayout->addWidget(petRunLabel,0,0);
@@ -28,6 +29,10 @@ void MainWindow::createPETPage()
     auto *displayLayout = new QVBoxLayout();
     displayLayout->addWidget(displayButton);
 
+    auto *runsBox = new QGroupBox("PET scan & file name");
+    runsBox->setLayout(petRunLayout);
+    runsBox->setLayout(displayLayout);
+
     _petFramesBox = new QListWidget();
     _petFramesBox->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::MinimumExpanding);
     _petFramesBox->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
@@ -36,7 +41,6 @@ void MainWindow::createPETPage()
     auto *runLayout = new QVBoxLayout();
     runLayout->addLayout(petRunLayout);
     runLayout->addLayout(displayLayout);
-    runLayout->addWidget(_petFramesBox);
 
     auto *templateLabel = new QLabel("fMRI template directory (with mcTemplate.nii)");
     auto *fileLabel     = new QLabel("fMRI file name(s) for motion-correction");
@@ -47,41 +51,49 @@ void MainWindow::createPETPage()
     _smoothingPET->setMaximumWidth(150);
     connect(_smoothingPET, SIGNAL(editingFinished()), this, SLOT(changedSmoothingPET()));
 
-    _doEverythingPETButton = new QPushButton("Do everything (no interaction required)");
-    _doEverythingPETButton->setEnabled(false);
-    _doEverythingPETButton->setCheckable(true);
-    connect(_doEverythingPETButton, SIGNAL(clicked(bool)), this, SLOT(doEverthingPET()));
-
-    _motionCorrectMatchingMRIButton = new QPushButton("Create matching MRI and motion-correct it");
-    _motionCorrectMatchingMRIButton->setEnabled(false);
-    connect(_motionCorrectMatchingMRIButton, SIGNAL(pressed()), this, SLOT(motionCorrectMatchingMRI()));
-
-    _motionCorrectPETButton = new QPushButton("Apply motion-correction to PET (raw -->mc)");
-    connect(_motionCorrectPETButton,         SIGNAL(pressed()), this, SLOT(applyMotionCorrectionToPET()));
-
     auto *fMRILayout = new QGridLayout();
     fMRILayout->addWidget(templateLabel,0,0);
     fMRILayout->addWidget(_fMRIForPETTemplate,0,1);
     fMRILayout->addWidget(fileLabel,1,0);
     fMRILayout->addWidget(_fMRIForPETFileName,1,1);
 
-    auto *setupLayout = new QVBoxLayout();
-    setupLayout->addLayout(runLayout);
-    setupLayout->addLayout(fMRILayout);
-    setupLayout->addWidget(_doEverythingPETButton);
-    setupLayout->addWidget(_motionCorrectMatchingMRIButton);
-    setupLayout->addWidget(_motionCorrectPETButton);
+    auto *mcLayout = new QVBoxLayout();
+    runLayout->addWidget(_petFramesBox);
+    mcLayout->addLayout(runLayout);
+    mcLayout->addLayout(fMRILayout);
 
-    auto *runsBox = new QGroupBox("Motion-correct PET using EPI");
-    runsBox->setLayout(setupLayout);
+    _mcPETBox = new QGroupBox("Motion-correct PET using EPI");
+    _mcPETBox->setLayout(mcLayout);
+
+    _doEverythingPETButton = new QPushButton("Do everything (no interaction required)");
+    _doEverythingPETButton->setCheckable(true);
+    connect(_doEverythingPETButton, SIGNAL(clicked(bool)), this, SLOT(doEverthingPET()));
+
+    _motionCorrectMatchingMRIButton = new QPushButton("Create matching MRI and motion-correct it");
+    connect(_motionCorrectMatchingMRIButton, SIGNAL(pressed()), this, SLOT(motionCorrectMatchingMRI()));
+
+    _motionCorrectPETButton = new QPushButton("Apply motion-correction to PET (raw -->mc)");
+    connect(_motionCorrectPETButton,         SIGNAL(pressed()), this, SLOT(applyMotionCorrectionToPET()));
 
     _alignPETButton   = new QPushButton("Align PET time series (mc --> align)");
-    _analyzeTAC       = new QPushButton("Analyze TAC");
     connect(_alignPETButton,                 SIGNAL(pressed()), this, SLOT(alignPET()));
+
+    _analyzeTAC       = new QPushButton("Create kinetic analysis");
     connect(_analyzeTAC,                     SIGNAL(pressed()), this, SLOT(analyzeTAC()));
-    _motionCorrectPETButton->setEnabled(false);
+
+    auto *smoothingLabel = new QLabel("post-alignment smoothing width");
+    _smoothingPET = new QLineEdit("0.");
+    _smoothingPET->setMaximumWidth(150);
+    connect(_smoothingPET, SIGNAL(editingFinished()), this, SLOT(changedSmoothingPET()));
+    auto *alignLayout = new QGridLayout();
+    alignLayout->addWidget(smoothingLabel,0,0);
+    alignLayout->addWidget(_smoothingPET,0,1);
 
     auto *actionLayout = new QVBoxLayout();
+    actionLayout->addWidget(_doEverythingPETButton);
+    actionLayout->addWidget(_motionCorrectMatchingMRIButton);
+    actionLayout->addWidget(_motionCorrectPETButton);
+    actionLayout->addLayout(alignLayout);
     actionLayout->addWidget(_alignPETButton);
     actionLayout->addWidget(_analyzeTAC);
 
@@ -90,20 +102,23 @@ void MainWindow::createPETPage()
 
     auto *pageLayout = new QVBoxLayout();
     pageLayout->addWidget(runsBox);
+    pageLayout->addWidget(_mcPETBox);
     pageLayout->addWidget(actionBox);
     _petPage->setLayout(pageLayout);
 }
 
 void MainWindow::updatePETFileNameBox(QString fileName)
 {
+    FUNC_ENTER << fileName;
     updatePETFileNameBox();
     int foundIndex=-1;
     for (int jList=0; jList<_petFileBox->count(); jList++)
     {
-        if ( _petFileBox->itemText(jList).compare(fileName) )
+        if ( !_petFileBox->itemText(jList).compare(fileName) )
             foundIndex = jList;
     }
     if ( foundIndex >= 0 ) _petFileBox->setCurrentIndex(foundIndex);
+    FUNC_EXIT << foundIndex;
 }
 
 
@@ -120,9 +135,9 @@ void MainWindow::updatePETFileNameBox()
     for (int jList=0; jList<fileList.size(); jList++)
     {
         _petFileBox->addItem(fileList.at(jList));
-        if ( fileList.at(jList) == "align.nii")   indexAlign   = jList;
-        if ( fileList.at(jList) == "mc.nii")      indexMC      = jList;
         if ( fileList.at(jList) == "raw.nii")     indexRaw      = jList;
+        if ( fileList.at(jList) == "mc.nii")      indexMC      = jList;
+        if ( fileList.at(jList) == "align.nii")   indexAlign   = jList;
     }
     if ( indexAlign >= 0 )
         _petFileBox->setCurrentIndex(indexAlign);
@@ -270,16 +285,35 @@ void MainWindow::openedPETPage()
 
 void MainWindow::enablePETActionButtons()
 {
-    _alignFileNameForPETRegistration = "t1/" + _anatomyDirBox->currentText() + "/align.com";
+    if ( !_petFileBox->currentText().compare("raw.nii") )
+        _alignFileNameForPETRegistration = "t1/" + _anatomyDirBox->currentText() + "/align.com";
+    else if ( !_petFileBox->currentText().compare("align.nii") )
+        _alignFileNameForPETRegistration = "pet/" + _petDirBox->currentText() + "/align.com";
     _alignPETButton->setText(QString("Align PET time series (mc --> align) using %1")
                              .arg(_alignFileNameForPETRegistration));
 
     // enable
-    _motionCorrectMatchingMRIButton->setEnabled( !_fMRIForPETTemplate->text().isEmpty() && _petDirBox->count() > 0);
-    _motionCorrectPETButton->setEnabled(_petDirBox->count() > 0 && petFileExists("mc.dat"));
-    _alignPETButton->setEnabled(petFileExists("mc.nii")    && anatomyFileExists("align.com"));
-    _doEverythingPETButton->setEnabled(petFileExists("raw.nii") && anatomyFileExists("align.com") &&
-                                       !_fMRIForPETTemplate->text().isEmpty() );
+    bool bay6 = _radioButtonNHPBay6->isChecked();
+    bool timeTagsExist = petFileExists("time-tags.txt");
+
+    if (  bay6 )
+        _alignPETButton->setEnabled(petFileExists("raw.nii"));
+    else
+    {
+        _motionCorrectMatchingMRIButton->setEnabled( !_fMRIForPETTemplate->text().isEmpty() && _petDirBox->count() > 0);
+        _motionCorrectPETButton->setEnabled(_petDirBox->count() > 0 && petFileExists("mc.dat"));
+        _doEverythingPETButton->setEnabled(petFileExists("raw.nii") && anatomyFileExists("align.com") &&
+                                           !_fMRIForPETTemplate->text().isEmpty() );
+        _alignPETButton->setEnabled(petFileExists("mc.nii")    && anatomyFileExists("align.com"));
+    }
+    _motionCorrectMatchingMRIButton->setVisible(!bay6);
+    _motionCorrectPETButton->setVisible(!bay6);
+    _doEverythingPETButton->setVisible(!bay6);
+    _mcPETBox->setVisible(!bay6 && timeTagsExist);
+
+    FUNC_INFO << "tests" << !bay6 << timeTagsExist;
+
+    _analyzeTAC->setEnabled(petFileExists("align.nii"));
 
     // highlight
     if ( _petDirBox->count() > 0 && petFileExists("mc.dat") )
@@ -303,9 +337,6 @@ void MainWindow::updatePETDirBox(int indexInBox)
     if ( petFileExists(_petFileBox->currentText()) )
     {
         getDimensions(_petFile.name, _petFile.dim);
-        bool timeTagsExists = petFileExists("time-tags.txt");
-        FUNC_INFO << "timeTagsExists" << timeTagsExists;
-        _petFramesBox->setVisible(timeTagsExists);
         QString fileName = "pet/" + _petDirBox->currentText() + "/time-tags.txt";
         FUNC_INFO << "dim.t" << _petFile.dim.t;
         getTimeTags(fileName,_petFile.timeTags,_petFile.timeText);
@@ -533,20 +564,25 @@ void MainWindow::alignPET()
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMAlignPET(int, QProcess::ExitStatus)));
 
     QStringList arguments;
-    QString mcFileName = "pet/" + _petDirBox->currentText() + "/mc.nii";
+
+    QString mcFileName = "pet/" + _petDirBox->currentText() + "/raw.nii";
     arguments.append(mcFileName);
     arguments.append("-O");
     arguments.append("alignment");
     arguments.append("-T");
     arguments.append(_anatomyTemplateDirectory->currentText());
-    // alignment file name
-    arguments.append("--preprocess");
-    arguments.append("register");
+    arguments.append("-I");
+    arguments.append(_alignFileNameForPETRegistration);
+    arguments.append("--smoothing");
+    arguments.append(_smoothingPET->text());
     arguments.append("--output-file");
     arguments.append("align");
-    arguments.append("--quit");
-    arguments.append("-I");
-    arguments.append(_alignFileNameForPETRegistration);   
+    if ( !_petFileBox->currentText().compare("raw.nii") )
+    {
+        arguments.append("--preprocess");
+        arguments.append("register");
+        arguments.append("--quit");
+    }
 
     qInfo() << _fastmapProcess << arguments;
     process->start(_fastmapProcess,arguments);
