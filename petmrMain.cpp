@@ -48,16 +48,32 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     _tabs->addTab(_anatomyPage, tr("Anatomy"));
     _tabs->addTab(_fmriPage, tr("fMRI"));
     _tabs->addTab(_petPage, tr("PET"));
-    _tabs->addTab(_cleanPage, tr("clean up"));
+    _tabs->addTab(_cleanPage, tr("cleanup"));
     _tabs->setTabToolTip(0,"Query database and download data");
     _tabs->setTabToolTip(1,"Align anatomy; potentially run freeSurfer;\nClick tab to refresh state");
-    connect(_tabs, SIGNAL(tabBarClicked(int)), this, SLOT(changedPage(int)));
+    connect(_tabs, SIGNAL(currentChanged(int)), this, SLOT(changedPage(int)));
 
     _centralWidget = new QWidget(this);
     this->setCentralWidget( _centralWidget );
     auto *mainLayout = new QVBoxLayout( _centralWidget );
     mainLayout->addWidget(radioBox);
     mainLayout->addWidget(_tabs);
+    _noteBox.resize(_tabs->count());
+    _helpBox.resize(_tabs->count());
+    for (int jNote=0; jNote<_tabs->count(); jNote++)
+    {
+        _noteBox[jNote] = new QTextEdit("");
+        _helpBox[jNote] = new QTextEdit("");
+        _noteBox[jNote]->setMaximumHeight(250);
+        _helpBox[jNote]->setMaximumHeight(250);
+
+        mainLayout->addWidget(_noteBox[jNote]);
+        mainLayout->addWidget(_helpBox[jNote]);
+        _noteBox[jNote]->setVisible(false);
+        _helpBox[jNote]->setVisible(false);
+        _helpBox[jNote]->setReadOnly(true);
+    }
+    _helpBox[0]->setVisible(true);
 
     _statusBar = this->statusBar();
     _statusBar->setStyleSheet("color:Darkred");
@@ -81,17 +97,57 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     QSize iconSizeSmall(24,24);
     const QIcon *showBrowser = new QIcon(":/My-Icons/textOutput.png");
-    QToolBar *sideToolBar = addToolBar(tr("tool bar"));
     _browserAction = new QAction(*showBrowser,"browser",this);
     _browserAction->setCheckable(true);
     _browserAction->setChecked(false);
-    sideToolBar->addAction(_browserAction);
-    sideToolBar->setIconSize(iconSizeSmall);
-    addToolBar(Qt::LeftToolBarArea, sideToolBar);
     connect(_browserAction, SIGNAL(toggled(bool)), this, SLOT(showBrowser(bool)));
+    _browserAction->setToolTip("Show or hide the process output window");
 
     _outputBrowser = new QTextBrowser;
     _browserAction->setChecked(false);
+
+    QWidget* spacer = new QWidget();
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    QFrame* separator1 = new QFrame();
+    separator1->setFrameShape(QFrame::HLine);
+    separator1->setLineWidth(3);
+    separator1->setFixedHeight(20);
+    separator1->setFrameShadow(QFrame::Raised);
+
+    QFrame* separator2 = new QFrame();
+    separator2->setFrameShape(QFrame::HLine);
+    separator2->setFixedHeight(_statusBar->height());
+    separator2->setFrameShadow(QFrame::Raised);
+
+    _showNotesAction = new QAction("Notes",this);
+    _showNotesAction->setCheckable(true);
+    _showNotesAction->setChecked(false);
+    _showNotesAction->setToolTip("Show or hide the Notes");
+    connect(_showNotesAction, SIGNAL(toggled(bool)), this, SLOT(showNotes(bool)));
+
+    _showHelpAction = new QAction("Help",this);
+    _showHelpAction->setCheckable(true);
+    _showHelpAction->setChecked(true);
+    _showHelpAction->setToolTip("Show or hide the Help");
+    connect(_showHelpAction, SIGNAL(toggled(bool)), this, SLOT(showHelp(bool)));
+
+    _showNotesAction->setCheckable(true);
+    _showHelpAction->setCheckable(true);
+    auto *helpNotesGroup = new QActionGroup(this);
+    helpNotesGroup->addAction(_showNotesAction);
+    helpNotesGroup->addAction(_showHelpAction);
+    _showHelpAction->setChecked(true);
+
+    QToolBar *sideToolBar = addToolBar(tr("tool bar"));
+    sideToolBar->setIconSize(iconSizeSmall);
+    sideToolBar->addAction(_browserAction);
+    sideToolBar->addWidget(spacer);
+    sideToolBar->addAction(_showHelpAction);
+    sideToolBar->addWidget(separator1);
+    sideToolBar->addAction(_showNotesAction);
+    sideToolBar->addWidget(separator2);
+    addToolBar(Qt::LeftToolBarArea, sideToolBar);
 
     /*
     QSize defaultWindowSize;
@@ -102,6 +158,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     _outputBrowser->resize(defaultWindowSize);
     */
 
+    loadNotesOrHelp(true);
+    loadNotesOrHelp(false);
     openedAnatomyPage();
     readUnpackLog();
     readAvailableScanList();
@@ -297,9 +355,30 @@ void MainWindow::dataOriginChanged()
     writeSubjectVariables();
 }
 
+void MainWindow::showNotes(bool show)
+{
+    for (int jNote=0; jNote<_noteBox.count(); jNote++)
+    {
+        _noteBox[jNote]->setVisible(false);
+        _helpBox[jNote]->setVisible(false);
+    }
+
+    int tabIndex = _tabs->currentIndex();
+    if ( show )
+        _noteBox[tabIndex]->setVisible(true);
+    else
+        _helpBox[tabIndex]->setVisible(true);
+}
+
 void MainWindow::changedPage(int index)
 {
-    if ( index == page_anatomy )
+    FUNC_ENTER << index;
+    showNotes(_showNotesAction->isChecked());
+    writeAllNotes();
+
+    if ( index == page_download )
+        openedAnatomyPage();
+    else if ( index == page_anatomy )
         openedAnatomyPage();
     else if ( index == page_fMRI )
         openedfMRIPage();
@@ -307,6 +386,102 @@ void MainWindow::changedPage(int index)
         openedPETPage();
     else if ( index == page_clean )
         openedCleanPage();
+}
+
+void MainWindow::writeAllNotes()
+{
+    FUNC_ENTER;
+    QString fileName = "notes.dat";
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+    QTextStream out(&file);
+
+    for (int jNote=0; jNote<_noteBox.count(); jNote++)
+    {
+        out << _noteBox[jNote]->toPlainText() << "\n";
+        out << _noteBox[jNote]->toHtml() << "\n";
+    }
+    file.close();
+    FUNC_EXIT;
+}
+
+void MainWindow::loadNotesOrHelp(bool notes)
+{
+    FUNC_ENTER;
+    QFile inFile;
+    if ( notes )
+        inFile.setFileName("notes.dat");
+    else
+        inFile.setFileName(_scriptDirectory+"help.dat");
+    if (!inFile.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+
+    QTextStream in_stream(&inFile);
+    QRegExp rx("[,\\s]");// match a comma or a space
+
+    FUNC_INFO << "here 1";
+    QStringList stringList;
+    bool newTab = false;
+    while ( !in_stream.atEnd() && !newTab )
+    {
+        QString line = in_stream.readLine();
+        FUNC_INFO << "line" << line;
+        stringList = line.split(rx, QString::SkipEmptyParts);
+        FUNC_INFO << stringList;
+        newTab = stringList.count() > 1 && !stringList.at(0).compare("*tab*");
+        FUNC_INFO << "newTab" << newTab;
+    }
+    FUNC_INFO << "here 2" << newTab;
+
+    int whichTab = whichTabName(stringList.at(1));
+    newTab = false; QString notesString;
+    while ( !in_stream.atEnd() )
+    {
+        FUNC_INFO << "whichTab" << whichTab;
+        QString line = in_stream.readLine();
+        FUNC_INFO << "line" << line;
+        stringList = line.split(rx, QString::SkipEmptyParts);
+        FUNC_INFO << "stringList" << stringList;
+        newTab = stringList.count() > 1 && !stringList.at(0).compare("*tab*");
+        if ( !newTab )
+        {
+            if ( !line.isEmpty() )
+                notesString = notesString + line + "\n";
+        }
+        else
+        {
+            FUNC_INFO << "assign:" << whichTab << notesString;
+            if ( notes )
+                _noteBox[whichTab]->setText(notesString);
+            else
+                _helpBox[whichTab]->setText(notesString);
+            notesString.clear();
+            whichTab = whichTabName(stringList.at(1));
+            FUNC_INFO << "next tab" << whichTab;
+        }
+    }
+    if ( notes )
+        _noteBox[whichTab]->setText(notesString);
+    else
+        _helpBox[whichTab]->setText(notesString);
+    notesString.clear();
+
+    inFile.close();
+    FUNC_EXIT;
+}
+
+int MainWindow::whichTabName(QString name)
+{
+    FUNC_ENTER;
+    int whichTab = -1;
+    for (int jTab=0; jTab<_tabs->count(); jTab++)
+    {
+        QString tabName = _tabs->tabText(jTab);
+        if ( !tabName.compare(name) ) whichTab = jTab;
+    }
+    FUNC_EXIT << whichTab;
+    return whichTab;
 }
 
 void MainWindow::aboutApp()
@@ -326,6 +501,7 @@ void MainWindow::aboutApp()
 
 void MainWindow::exitApp()
 {
+    writeAllNotes();
     writeQSettings();
     QCoreApplication::exit(0);
 }

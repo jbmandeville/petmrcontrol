@@ -47,7 +47,8 @@ private:
         page_anatomy,
         page_fMRI,
         page_PET,
-        page_clean
+        page_clean,
+        page_size
     };
     enum scanCategory
     {
@@ -102,6 +103,10 @@ private:
     QWidget *_cleanPage;
     QStatusBar *_statusBar;
     QAction *_browserAction;
+    QVector<QTextEdit *> _noteBox;
+    QVector<QTextEdit *> _helpBox;
+    QAction *_showNotesAction;
+    QAction *_showHelpAction;
 
     QTextBrowser *_outputBrowser;
 
@@ -201,7 +206,9 @@ private:
     void reformatAcquisitionTimes(downloadScan scan);
     void readSubjectVariables();
     void readSmoothing(int which);
-
+    void writeAllNotes();
+    void loadNotesOrHelp(bool notes);
+    int whichTabName(QString name);
     void setupScanTypes();
 
     void updateAnatomyFileName();
@@ -265,12 +272,12 @@ private slots:
     }
     inline void showBrowser(bool show)
     {
-        FUNC_ENTER << show;
-        if ( show )
-            _outputBrowser->show();
-        else
-            _outputBrowser->hide();
+        if ( show ) _outputBrowser->show();
+        else        _outputBrowser->hide();
     }
+    void showNotes(bool show);
+    inline void showHelp(bool show) {showNotes(!show);}
+
     inline void changedAnatomyFileName(int indexInBox) {enableAnatomyActionButtons();}
     void changedAnatomyDirName(int indexInBox);
 
