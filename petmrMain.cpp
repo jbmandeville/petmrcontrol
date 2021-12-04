@@ -117,26 +117,34 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     QFrame* separator2 = new QFrame();
     separator2->setFrameShape(QFrame::HLine);
-    separator2->setFixedHeight(_statusBar->height());
+    separator2->setLineWidth(3);
+    separator2->setFixedHeight(20);
     separator2->setFrameShadow(QFrame::Raised);
 
+    QFrame* separator3 = new QFrame();
+    separator3->setFrameShape(QFrame::HLine);
+    separator3->setFixedHeight(_statusBar->height());
+    separator3->setFrameShadow(QFrame::Raised);
+
     _showNotesAction = new QAction("Notes",this);
-    _showNotesAction->setCheckable(true);
-    _showNotesAction->setChecked(false);
     _showNotesAction->setToolTip("Show or hide the Notes");
     connect(_showNotesAction, SIGNAL(toggled(bool)), this, SLOT(showNotes(bool)));
 
     _showHelpAction = new QAction("Help",this);
-    _showHelpAction->setCheckable(true);
-    _showHelpAction->setChecked(true);
     _showHelpAction->setToolTip("Show or hide the Help");
     connect(_showHelpAction, SIGNAL(toggled(bool)), this, SLOT(showHelp(bool)));
 
+    _showNoneAction = new QAction("None",this);
+    _showNoneAction->setToolTip("Show or hide the Help");
+    connect(_showNoneAction, SIGNAL(toggled(bool)), this, SLOT(showNone()));
+
     _showNotesAction->setCheckable(true);
     _showHelpAction->setCheckable(true);
+    _showNoneAction->setCheckable(true);
     auto *helpNotesGroup = new QActionGroup(this);
     helpNotesGroup->addAction(_showNotesAction);
     helpNotesGroup->addAction(_showHelpAction);
+    helpNotesGroup->addAction(_showNoneAction);
     _showHelpAction->setChecked(true);
 
     QToolBar *sideToolBar = addToolBar(tr("tool bar"));
@@ -147,6 +155,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     sideToolBar->addWidget(separator1);
     sideToolBar->addAction(_showNotesAction);
     sideToolBar->addWidget(separator2);
+    sideToolBar->addAction(_showNoneAction);
+    sideToolBar->addWidget(separator3);
     addToolBar(Qt::LeftToolBarArea, sideToolBar);
 
     /*
@@ -355,13 +365,18 @@ void MainWindow::dataOriginChanged()
     writeSubjectVariables();
 }
 
-void MainWindow::showNotes(bool show)
+void MainWindow::showNone()
 {
     for (int jNote=0; jNote<_noteBox.count(); jNote++)
     {
         _noteBox[jNote]->setVisible(false);
         _helpBox[jNote]->setVisible(false);
     }
+}
+
+void MainWindow::showNotes(bool show)
+{
+    showNone();
 
     int tabIndex = _tabs->currentIndex();
     if ( show )
@@ -397,10 +412,10 @@ void MainWindow::writeAllNotes()
         return;
     QTextStream out(&file);
 
-    for (int jNote=0; jNote<_noteBox.count(); jNote++)
+    for (int jNote=0; jNote<_tabs->count(); jNote++)
     {
+        out << "*tab* " << _tabs->tabText(jNote);
         out << _noteBox[jNote]->toPlainText() << "\n";
-        out << _noteBox[jNote]->toHtml() << "\n";
     }
     file.close();
     FUNC_EXIT;
@@ -420,7 +435,6 @@ void MainWindow::loadNotesOrHelp(bool notes)
     QTextStream in_stream(&inFile);
     QRegExp rx("[,\\s]");// match a comma or a space
 
-    FUNC_INFO << "here 1";
     QStringList stringList;
     bool newTab = false;
     while ( !in_stream.atEnd() && !newTab )
@@ -432,7 +446,7 @@ void MainWindow::loadNotesOrHelp(bool notes)
         newTab = stringList.count() > 1 && !stringList.at(0).compare("*tab*");
         FUNC_INFO << "newTab" << newTab;
     }
-    FUNC_INFO << "here 2" << newTab;
+    if ( !newTab ) return;
 
     int whichTab = whichTabName(stringList.at(1));
     newTab = false; QString notesString;
@@ -447,9 +461,12 @@ void MainWindow::loadNotesOrHelp(bool notes)
         if ( !newTab )
         {
             if ( !line.isEmpty() )
+            {
                 notesString = notesString + line + "\n";
+                FUNC_INFO << "append:" << notesString;
+            }
         }
-        else
+        else if ( whichTab >= 0 )
         {
             FUNC_INFO << "assign:" << whichTab << notesString;
             if ( notes )
@@ -461,9 +478,9 @@ void MainWindow::loadNotesOrHelp(bool notes)
             FUNC_INFO << "next tab" << whichTab;
         }
     }
-    if ( notes )
+    if ( notes && whichTab >= 0 )
         _noteBox[whichTab]->setText(notesString);
-    else
+    else if ( whichTab >= 0 )
         _helpBox[whichTab]->setText(notesString);
     notesString.clear();
 
@@ -522,7 +539,6 @@ void MainWindow::writeQSettings()
 
     _savedQSettings.sync();
 }
-
 
 QString MainWindow::getDimensions(QString fileName, iPoint4D &dim)
 {

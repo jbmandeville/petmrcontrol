@@ -237,8 +237,6 @@ void MainWindow::openedPETPage()
         fMRIFile.name = epiFolderList.at(jList);
         QString tagsFileName = fMRITopDir.absolutePath() + "/" + fMRIFile.name + "/time-tags.txt";
         // Because only the time dimension is needed here for the fMRI files, just use the time-tags to avoid file searches
-//        QString fullFileName = fMRITopDir.absolutePath() + "/" + fMRIFile.name + "/raw.nii";
-//        getDimensions(fullFileName, fMRIFile.dim);
         getTimeTags(tagsFileName,fMRIFile.timeTags,fMRIFile.timeText);
         fMRIFile.dim.t = fMRIFile.timeTags.size();
         if ( fMRIFile.dim.t > 0 )
@@ -262,12 +260,19 @@ void MainWindow::openedPETPage()
     FUNC_INFO << 3;
     if ( !_fMRIForPETTemplate->text().isEmpty() )
     {
-        QString fileName = fMRITopDir.absolutePath() + "/" + _fMRIForPETTemplate->text() + "/raw.nii";
-        QFileInfo checkFile(fileName);
-        if (checkFile.exists() && checkFile.isFile())
-            _fMRIForPETFileName->setText("raw.nii");
+        QString fileName = fMRITopDir.absolutePath() + "/" + _fMRIForPETTemplate->text() + "/reslice.nii";
+        QFileInfo checkReslice(fileName);
+        if (checkReslice.exists() && checkReslice.isFile())
+            _fMRIForPETFileName->setText("reslice.nii");
         else
-            _fMRIForPETTemplate->setText("");  // this should disable action button
+        {
+            fileName = fMRITopDir.absolutePath() + "/" + _fMRIForPETTemplate->text() + "/reslice.nii";
+            QFileInfo checkRaw(fileName);
+            if (checkRaw.exists() && checkRaw.isFile())
+                _fMRIForPETFileName->setText("raw.nii");
+            else
+                _fMRIForPETTemplate->setText("");  // this should disable action button
+        }
     }
     FUNC_INFO << 4;
 
@@ -336,16 +341,13 @@ void MainWindow::updatePETDirBox(int indexInBox)
     FUNC_ENTER << indexInBox << _petFile.name;
     if ( petFileExists(_petFileBox->currentText()) )
     {
-        getDimensions(_petFile.name, _petFile.dim);
         QString fileName = "pet/" + _petDirBox->currentText() + "/time-tags.txt";
-        FUNC_INFO << "dim.t" << _petFile.dim.t;
         getTimeTags(fileName,_petFile.timeTags,_petFile.timeText);
+        getDimensions(_petFile.name, _petFile.dim);
+        FUNC_INFO << "dim.t" << _petFile.dim.t;
         findPETandFMRIOverlap();
         FUNC_INFO << "sizes" << _petFile.dim.t << _petFile.timeText.size() << _matchingEPI.size();
-        //        _petFramesBox->clear();
-        FUNC_INFO << "here 1";
         _petFrameItems.resize(_petFile.dim.t);
-        FUNC_INFO << "here 2";
         for (int jFrame=0; jFrame<_petFile.dim.t; jFrame++)
         {
             FUNC_INFO << "jFrame" << jFrame;
@@ -577,7 +579,8 @@ void MainWindow::alignPET()
     arguments.append(_smoothingPET->text());
     arguments.append("--output-file");
     arguments.append("align");
-    if ( !_petFileBox->currentText().compare("raw.nii") )
+    if ( !_petFileBox->currentText().compare("raw.nii") ||
+         !_petFileBox->currentText().compare("mc.nii") )
     {
         arguments.append("--preprocess");
         arguments.append("register");

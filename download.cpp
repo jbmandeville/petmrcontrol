@@ -154,6 +154,7 @@ void MainWindow::readAvailableScanList()
     if (!infile.open(QIODevice::ReadOnly | QIODevice::Text))
         return;
     _generateScanListButton->setStyleSheet("background-color:lightYellow;");
+    _showNotesAction->setChecked(true);
     QTextStream in_stream(&infile);
 
     int iLine=0;

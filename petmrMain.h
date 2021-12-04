@@ -107,6 +107,7 @@ private:
     QVector<QTextEdit *> _helpBox;
     QAction *_showNotesAction;
     QAction *_showHelpAction;
+    QAction *_showNoneAction;
 
     QTextBrowser *_outputBrowser;
 
@@ -275,6 +276,7 @@ private slots:
         if ( show ) _outputBrowser->show();
         else        _outputBrowser->hide();
     }
+    void showNone();
     void showNotes(bool show);
     inline void showHelp(bool show) {showNotes(!show);}
 

@@ -271,21 +271,12 @@ void MainWindow::changedfMRIFileName(int indexInBox)
         return;
     }
     QStringList const folderList = fMRITopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-
-    QString path = fMRITopDir.dirName() + "/" + _fMRITemplateDirBox->currentText();
-    QString fileName = path + "/" + _fMRIFileBox->currentText();
-    getDimensions(fileName, _dimEPITemplate);
-    FUNC_INFO << "_dimEPITemplate1" << _dimEPITemplate.x << _dimEPITemplate.y << _dimEPITemplate.z;
-    FUNC_INFO << "from file" << fileName;
-
     // Count files for allocation
     int nFiles=0;
     for (int jList=0; jList<folderList.size(); jList++)
     {
         FourDFile file;
-        file.name        = "epi/" + folderList.at(jList) + "/" + _fMRIFileBox->currentText();
         QString tagsName = "epi/" + folderList.at(jList) + "/time-tags.txt";
-        getDimensions(file.name, file.dim);
         getTimeTags(tagsName,file.timeTags,file.timeText);
         if ( file.timeTags.size() != 0 )
             nFiles++;
@@ -300,11 +291,26 @@ void MainWindow::changedfMRIFileName(int indexInBox)
         FourDFile file;
         file.name        = "epi/" + folderList.at(jList) + "/" + _fMRIFileBox->currentText();
         QString tagsName = "epi/" + folderList.at(jList) + "/time-tags.txt";
-        QString text = getDimensions(file.name, file.dim);
         getTimeTags(tagsName,file.timeTags,file.timeText);
+        QString text = getDimensions(file.name, file.dim);
         FUNC_INFO << "jList" << jList << "file" << file.name;
+        if ( !folderList.at(jList).compare(_fMRITemplateDirBox->currentText()) )
+        {
+            _dimEPITemplate.x = file.dim.x;
+            _dimEPITemplate.y = file.dim.y;
+            _dimEPITemplate.z = file.dim.z;
+        }
         if ( file.timeTags.size() != 0 )
         {
+            _fMRIFiles[nFiles] = file;
+            FUNC_INFO << "pet tags size" << _petFile.timeTags.size();
+            if ( _petFile.timeTags.size() > 0 )
+            {
+                double timeInPet = (file.timeTags.at(0) - _petFile.timeTags.at(0))/60.;
+                QString number;  number.setNum(timeInPet,'g',4);
+                text = text + ", time in PET = " + number + " min";
+            }
+
             FUNC_INFO << "add fmri file" << folderList.at(jList) << text;
             QListWidgetItem item;
 
@@ -322,7 +328,6 @@ void MainWindow::changedfMRIFileName(int indexInBox)
                 item.setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
             }
             _fMRIRunItems[nFiles] = item;
-            _fMRIFiles[nFiles] = file;
             _fMRIRunItemBox->addItem(&_fMRIRunItems[nFiles]);
             nFiles++;
             FUNC_INFO << "added fmri file" << folderList.at(jList) << text;
