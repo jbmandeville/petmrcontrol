@@ -423,9 +423,7 @@ void MainWindow::motionCorrectMatchingMRI()
     // First write the jip command file to create the matching MRI volume
     writeJipCommandFileForMatchingMRI();
 
-    auto *process = new QProcess;
-    _outputBrowser->setWindowTitle("Motion-correct matching MRI");
-    showBrowser(true);
+    auto *process = new QProcess();
     QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedMotionCorrectMatchingMRI(int, QProcess::ExitStatus)));
     process->setProcessChannelMode(QProcess::MergedChannels);
@@ -435,9 +433,8 @@ void MainWindow::motionCorrectMatchingMRI()
     // arguments: [EPI MC template dir] [pet dir]
     arguments.append(_fMRIForPETTemplate->text());
     arguments.append(_petDirBox->currentText());
-    qInfo() <<  exe << arguments;
-    process->start(exe,arguments);
-    _centralWidget->setEnabled(false);
+    QString message = "Motion-correct PET-matched EPI volumes; this takes about 10 minutes";
+    spawnProcess(process,exe,arguments,message,"Motion-correct matching EPI");
     FUNC_EXIT;
 }
 void MainWindow::finishedMotionCorrectMatchingMRI(int exitCode, QProcess::ExitStatus exitStatus)
@@ -445,8 +442,7 @@ void MainWindow::finishedMotionCorrectMatchingMRI(int exitCode, QProcess::ExitSt
     FUNC_ENTER;
 
     // Is interpolation required?
-    _centralWidget->setEnabled(true);
-    showBrowser(false);
+    finishedProcess();
     if ( _doEverythingPETButton->isChecked() )
     {
         if ( _petDirBox->count() > 0 && petFileExists("mc.dat") )
@@ -460,9 +456,7 @@ void MainWindow::applyMotionCorrectionToPET()
 {
     FUNC_ENTER;
 
-    auto *process = new QProcess;
-    _outputBrowser->setWindowTitle("Apply motion correction to PET");
-    showBrowser(true);
+    auto *process = new QProcess();
     QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedApplyingMCToPET(int, QProcess::ExitStatus)));
     process->setProcessChannelMode(QProcess::MergedChannels);
@@ -472,16 +466,14 @@ void MainWindow::applyMotionCorrectionToPET()
     // arguments: [pet dir] [mc file name]
     arguments.append(_petDirBox->currentText());
     arguments.append("mc.dat");
-    qInfo() <<  exe << arguments;
-    process->start(exe,arguments);
-    _centralWidget->setEnabled(false);
+    QString message = "Apply EPI-based motion-correction to PET; this takes about 10 minutes";
+    spawnProcess(process,exe,arguments,message,"Apply motion correction to PET");
     FUNC_EXIT;
 }
 void MainWindow::finishedApplyingMCToPET(int exitCode, QProcess::ExitStatus exitStatus)
 {
     FUNC_ENTER;
-    _centralWidget->setEnabled(true);
-    showBrowser(false);
+    finishedProcess();
     updatePETFileNameBox("mc.nii");  // not really required
     if ( _doEverythingPETButton->isChecked() )
     {
@@ -561,12 +553,10 @@ bool MainWindow::getPETMCInterpolationRequired()
 void MainWindow::alignPET()
 {
     FUNC_ENTER;
-    auto *process = new QProcess;
-    _centralWidget->setEnabled(false);
+    auto *process = new QProcess();
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMAlignPET(int, QProcess::ExitStatus)));
 
     QStringList arguments;
-
     QString mcFileName = "pet/" + _petDirBox->currentText() + "/raw.nii";
     arguments.append(mcFileName);
     arguments.append("-O");
@@ -587,8 +577,8 @@ void MainWindow::alignPET()
         arguments.append("--quit");
     }
 
-    qInfo() << _fastmapProcess << arguments;
-    process->start(_fastmapProcess,arguments);
+    QString message = "Align/register PET to template space; this takes about 10 minutes";
+    spawnProcess(process,_fastmapProcess,arguments,message,"");
 
     FUNC_EXIT;
 }
@@ -596,8 +586,7 @@ void MainWindow::alignPET()
 void MainWindow::finishedFMAlignPET(int exitCode, QProcess::ExitStatus exitStatus )
 {
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
-    _centralWidget->setEnabled(true);
-    showBrowser(false);
+    finishedProcess();
     updatePETFileNameBox("align.nii");  // not really required
     if ( _doEverythingPETButton->isChecked() )
     {
@@ -617,8 +606,7 @@ void MainWindow::analyzeTAC()
     // Create a analysis directory on pet ("srtm") and install files
     installSRTMAnalysis();
 
-    auto *process = new QProcess;
-    _centralWidget->setEnabled(false);
+    auto *process = new QProcess();
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMAnalyzeTAC(int, QProcess::ExitStatus)));
 
     QStringList arguments;
@@ -631,9 +619,8 @@ void MainWindow::analyzeTAC()
     arguments.append(_anatomyTemplateDirectory->currentText());
 
     process->setWorkingDirectory("pet/srtm");
-
-    qInfo() << _fastmapProcess << arguments;
-    process->start(_fastmapProcess,arguments);
+    QString message = "Create a new kinetic analysis; this requires interaction";
+    spawnProcess(process,_fastmapProcess,arguments,message,"");
 
     FUNC_EXIT;
 }
@@ -641,8 +628,7 @@ void MainWindow::finishedFMAnalyzeTAC(int exitCode, QProcess::ExitStatus exitSta
 {
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
     enablePETActionButtons();
-    _centralWidget->setEnabled(true);
-    showBrowser(false);
+    finishedProcess();
     if ( petFileExists("srtm","timeModel.dat") )
     {
         _analyzeTAC->setStyleSheet("background-color:lightYellow;");

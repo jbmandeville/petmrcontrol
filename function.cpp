@@ -381,8 +381,7 @@ void MainWindow::enableEPIActionButtons()
 void MainWindow::resliceEPI()
 {
     FUNC_ENTER;
-    auto *process = new QProcess;
-    _centralWidget->setEnabled(false);
+    auto *process = new QProcess();
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
             this, SLOT(finishedFMResliceEPI(int, QProcess::ExitStatus)));
 
@@ -412,9 +411,8 @@ void MainWindow::resliceEPI()
                 arguments.append(_fMRIFiles[jFile].name);
         }
     }
-    FUNC_INFO << _fastmapProcess << arguments;
-    qInfo() <<  _fastmapProcess << arguments;
-    process->start(_fastmapProcess,arguments);
+    QString message = "Reslice EPI; this can take tens of minutes";
+    spawnProcess(process,_fastmapProcess,arguments,message,"");
 
     FUNC_EXIT;
 }
@@ -440,13 +438,12 @@ void MainWindow::finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitSta
         }
     }
 
-    qInfo() <<  exe << arguments;
-    auto *process = new QProcess;
+    auto *process = new QProcess();
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
             this, SLOT(finishedLinkResliceEPI(int, QProcess::ExitStatus)));
 
-    qInfo() <<  exe << arguments;
-    process->start(exe,arguments);
+    QString message = "Link non-resliced raw.nii files to `reslice.nii' for consistency.";
+    spawnProcess(process,exe,arguments,message,"");
 }
 
 void MainWindow::finishedLinkResliceEPI(int exitCode, QProcess::ExitStatus exitStatus )
@@ -454,7 +451,7 @@ void MainWindow::finishedLinkResliceEPI(int exitCode, QProcess::ExitStatus exitS
     qInfo() << "finished: link EPI";
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
 
-    _centralWidget->setEnabled(true);
+    finishedProcess();
     updateEPIFileNameBox("reslice.nii");
 
     FUNC_INFO << "next up?" << _doEverythingEPIButton->isChecked();
@@ -484,8 +481,7 @@ bool MainWindow::epiFileExists(QString dirName, QString fileName)
 void MainWindow::alignEPI()
 {
     FUNC_ENTER;
-    auto *process = new QProcess;
-    _centralWidget->setEnabled(false);
+    auto *process = new QProcess();
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
             this, SLOT(finishedFMAlignEPI(int, QProcess::ExitStatus)));
 
@@ -527,9 +523,9 @@ void MainWindow::alignEPI()
         arguments.append("-I");
         arguments.append(comName);
     }
-    FUNC_INFO << _fastmapProcess << arguments;
-    qInfo() <<  _fastmapProcess << arguments;
-    process->start(_fastmapProcess,arguments);
+
+    QString message = "Align EPI to template space; this requires interaction (potential tweaking)";
+    spawnProcess(process,_fastmapProcess,arguments,message,"");
 
     QMessageBox msgBox;
     QString line1 = "1) Check/adjust alignment (calculator button)\n";
@@ -548,7 +544,7 @@ void MainWindow::finishedFMAlignEPI(int exitCode, QProcess::ExitStatus exitStatu
     qInfo() << "finished: align EPI";
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
     updateEPIFileNameBox("align.nii");
-    _centralWidget->setEnabled(true);
+    finishedProcess();
     if ( _doEverythingEPIButton->isChecked() )
     {
         _doEverythingEPIButton->setStyleSheet("background-color:lightYellow;");
@@ -593,9 +589,7 @@ void MainWindow::motionCorrectEPI()
 {
     writeJipCommandFileForMCAveraging();
 
-    auto *process = new QProcess;
-    _outputBrowser->setWindowTitle("Motion-correct EPI");
-    showBrowser(true);
+    auto *process = new QProcess();
     QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedMotionCorrectEPI(int, QProcess::ExitStatus)));
 
@@ -614,16 +608,14 @@ void MainWindow::motionCorrectEPI()
         if ( includeFile )
             arguments.append(_fMRIFiles[jFile].name);
     }
-    qInfo() <<  exe << arguments;
-    process->start(exe,arguments);
-    _centralWidget->setEnabled(false);
+    QString message = "Motion-correct EPI; this takes about 10 minutes";
+    spawnProcess(process,exe,arguments,message,"Motion-correct EPI");
 }
 void MainWindow::finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus)
 {
     qInfo() << "finished: motion-correct EPI";
     updateEPIFileNameBox("mc.nii");
-    _centralWidget->setEnabled(true);
-    showBrowser(false);
+    finishedProcess();
     if ( _doEverythingEPIButton->isChecked() )
     {
         _motionCorrectEPIButton->setStyleSheet("background-color:lightYellow;");
@@ -637,7 +629,7 @@ void MainWindow::finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exi
 void MainWindow::displayEPI()
 {
     FUNC_ENTER;
-    auto *process = new QProcess;
+    auto *process = new QProcess();
 
     QString rootFileName = _fMRIFileBox->currentText();
     QStringList arguments;

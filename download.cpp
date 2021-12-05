@@ -118,8 +118,6 @@ void MainWindow::queryDownloadPaths()
 void MainWindow::generateScanList()
 {
     auto *process = new QProcess;
-    _outputBrowser->setWindowTitle("Query Progress");
-    showBrowser(true);
     QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedGeneratingScanList(int, QProcess::ExitStatus)));
 
@@ -128,18 +126,16 @@ void MainWindow::generateScanList()
     QStringList arguments;
     QString exe = _scriptDirectory + "generateScanList.csh";
     arguments.append(_downloadPathBox->currentText());
-    qInfo() <<  exe << arguments;
-    process->start(exe,arguments);
-    _centralWidget->setEnabled(false);
+    QString message = "Create scan list (scan-list.log); this takes about 15 minutes";
+    spawnProcess(process,exe,arguments,message,"Generate scan list");
 }
 
 void MainWindow::finishedGeneratingScanList(int exitCode, QProcess::ExitStatus exitStatus)
 {
     readAvailableScanList();
-    _centralWidget->setEnabled(true);
+    finishedProcess();
     _downloadDataButton->setEnabled(enableDownloadData());
     qInfo() << "finished: generating scan list";
-    showBrowser(false);
 }
 
 void MainWindow::readAvailableScanList()
@@ -364,18 +360,16 @@ void MainWindow::downloadData()
 {
     outputDownloadList();
 
-    auto *process = new QProcess;
-    _outputBrowser->setWindowTitle("Download Progress");
-    showBrowser(true);
+    auto *process = new QProcess();
     QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedDownloadData(int, QProcess::ExitStatus)));
 
     QStringList arguments;
     QString exe = _scriptDirectory + "unpackData.csh";
     arguments.append(_downloadPathBox->currentText());
-    qInfo() <<  exe << arguments;
-    process->start(exe,arguments);
-    _centralWidget->setEnabled(false);
+
+    QString message = "Download data from server; this takes about 20 minutes";
+    spawnProcess(process,exe,arguments,message,"Download Progress");
 }
 
 void MainWindow::finishedDownloadData(int exitCode, QProcess::ExitStatus exitStatus)
@@ -386,8 +380,7 @@ void MainWindow::finishedDownloadData(int exitCode, QProcess::ExitStatus exitSta
         reformatAcquisitionTimes(_scans.at(jList));
 
     readAvailableScanList();
-    _centralWidget->setEnabled(true);
-    showBrowser(false);
+    finishedProcess();
 }
 
 void MainWindow::finishedDownloadDataNew()

@@ -206,8 +206,7 @@ void MainWindow::updateAnatomyFileName()
 void MainWindow::extractFreeSurferOverlays()
 {
     FUNC_ENTER << _anatomyDirBox->currentText();
-    auto *process = new QProcess;
-    _centralWidget->setEnabled(false);
+    auto *process = new QProcess();
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedExtractOverlays(int, QProcess::ExitStatus)));
 
     QString brainName = "t1/" + _anatomyDirBox->currentText() + "/brain.nii";
@@ -228,9 +227,9 @@ void MainWindow::extractFreeSurferOverlays()
     arguments.append("--preprocess");
     arguments.append("register-overlays-forward");
     arguments.append("--quit");
-    qInfo() << _fastmapProcess << arguments;
-    process->start(_fastmapProcess,arguments);
 
+    QString message = "Move freeSurfer overlays to template space; this takes about 15 minutes";
+    spawnProcess(process,_fastmapProcess,arguments,message,"");
     FUNC_EXIT;
 }
 
@@ -238,14 +237,13 @@ void MainWindow::finishedExtractOverlays(int exitCode, QProcess::ExitStatus exit
 {
     qInfo() << "finished: alignment";
     qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
-    _centralWidget->setEnabled(true);
+    finishedProcess();
 }
 
 void MainWindow::alignAnatomyToTemplate()
 {
     FUNC_ENTER;
-    auto *process = new QProcess;
-    _centralWidget->setEnabled(false);
+    auto *process = new QProcess();
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMAnatomyAlignment(int, QProcess::ExitStatus)));
 
     QString inputFileName = "t1/" + _anatomyDirBox->currentText() + "/" + _anatomyFileBox->currentText();
@@ -266,10 +264,6 @@ void MainWindow::alignAnatomyToTemplate()
         arguments.append(comName);
     }
 
-
-    qInfo() << _fastmapProcess << arguments;
-    process->start(_fastmapProcess,arguments);
-
     QMessageBox msgBox;
     QString line1 = "1) Check/adjust alignment (calculator button)\n";
     QString line2 = "2) Run images through alignment pipeline (run button)\n";
@@ -280,6 +274,8 @@ void MainWindow::alignAnatomyToTemplate()
     msgBox.setIcon(QMessageBox::Information);
     msgBox.exec();
 
+    QString message = "Align anatomical volume to template space; this requires interaction";
+    spawnProcess(process,_fastmapProcess,arguments,message,"");
     FUNC_EXIT;
 }
 
@@ -289,7 +285,7 @@ void MainWindow::finishedFMAnatomyAlignment(int exitCode, QProcess::ExitStatus e
     qInfo() << "exit code" << exitCode << "exit status" << exitStatus;
     updateAnatomyFileName();
     enableAnatomyActionButtons();
-    _centralWidget->setEnabled(true);
+    finishedProcess();
 }
 
 bool MainWindow::anatomyFileExists(QString dirName, QString fileName)
@@ -349,10 +345,7 @@ void MainWindow::runFreeSurfer()
                                   QMessageBox::Yes|QMessageBox::No);
     if (reply == QMessageBox::Yes)
     {
-        auto *process = new QProcess;
-        _centralWidget->setEnabled(false);
-        _outputBrowser->setWindowTitle("Run freeSurfer: recon-all");
-        showBrowser(true);
+        auto *process = new QProcess();
         QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
         connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
                 this, SLOT(finishedRunFreeSurfer(int, QProcess::ExitStatus)));
@@ -361,8 +354,8 @@ void MainWindow::runFreeSurfer()
         QStringList arguments;
         arguments.append(_anatomyDirBox->currentText());
         arguments.append(_subjectIDFreeSurfer->text());
-        qInfo() << exe << arguments;
-        process->start(exe,arguments);
+        QString message = "Run freeSurfer segmentation; this takes hours";
+        spawnProcess(process,exe,arguments,message,"Run freeSurfer: recon-all");
     }
 }
 
@@ -370,14 +363,13 @@ void MainWindow::finishedRunFreeSurfer(int exitCode, QProcess::ExitStatus exitSt
 {
     qInfo() << "finished: freeSurfer";
     updateAnatomyFileName();
-    _centralWidget->setEnabled(true);
-    showBrowser(false);
+    finishedProcess();
 }
 
 void MainWindow::displayAnatomy()
 {
     FUNC_ENTER;
-    auto *process = new QProcess;
+    auto *process = new QProcess();
 
     QString rootFileName = _anatomyFileBox->currentText();
     QString inputFileName = "t1/" + _anatomyDirBox->currentText() + "/" + rootFileName;

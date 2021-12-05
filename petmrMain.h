@@ -15,6 +15,7 @@
 #include <QAction>
 #include <QRadioButton>
 #include <QDebug>
+#include <QStatusBar>
 
 #include "io.h"
 
@@ -245,6 +246,27 @@ private:
     bool petFileExists(QString dirName, QString fileName);
     QString alignCOMFileName(int which);
 
+    inline void spawnProcess(QProcess *process, QString exe, QStringList arguments,
+                             QString message, QString browserTitle )
+    {
+        _statusBar->showMessage(message);
+        _centralWidget->setEnabled(false);
+        if ( !browserTitle.isEmpty() )
+        {
+            _outputBrowser->setWindowTitle("Query Progress");
+            _outputBrowser->show();
+        }
+        qInfo() <<  exe << arguments;
+        process->start(exe,arguments);
+    }
+
+    inline void finishedProcess()
+    {
+        _statusBar->clearMessage();
+        showBrowser(false);
+        _centralWidget->setEnabled(true);
+    }
+
     void enableEPIActionButtons();
     void enableAnatomyActionButtons();
 
@@ -263,8 +285,7 @@ private slots:
     inline void enableGUI(int exitCode, QProcess::ExitStatus exitStatus )
     {
         qInfo() << "finished";
-        _centralWidget->setEnabled(true);
-        showBrowser(false);
+        finishedProcess();
     }
     inline void outputToBrowser()
     {
