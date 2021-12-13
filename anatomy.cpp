@@ -67,13 +67,18 @@ void MainWindow::createAnatomyPage()
     _anatomyTemplateDirectory->setCurrentIndex(0);
     connect(_anatomyTemplateDirectory, SIGNAL(activated(int)),this, SLOT(writeSubjectVariables()));
 
+    auto *smoothingLabel = new QLabel("smoothing for extracted freeSurfer ROIs");
+    QString smoothText; smoothText.setNum(_savedSettings.fmSmoothing);
+    _smoothingAnatomy = new QLineEdit(smoothText);
+    _smoothingAnatomy->setMaximumWidth(150);
+    connect(_smoothingAnatomy, SIGNAL(editingFinished()), this, SLOT(changedSmoothingAnatomy()));
+
     auto *anatomyFileLayout = new QGridLayout();
     anatomyFileLayout->addWidget(templateDirLabel,0,0);
     anatomyFileLayout->addWidget(_anatomyTemplateDirectory,0,1);
+    anatomyFileLayout->addWidget(smoothingLabel,1,0);
+    anatomyFileLayout->addWidget(_smoothingAnatomy,1,1);
     anatomyFileLayout->setSpacing(0);
-
-    _smoothingAnatomy = new QLineEdit("0.");
-    connect(_smoothingAnatomy, SIGNAL(editingFinished()), this, SLOT(changedSmoothingAnatomy()));
 
     auto *anatomyAlignmentLayout = new QVBoxLayout();
     _alignAnatomyButton  = new QPushButton("Align to template (raw/brain --> align)",_anatomyPage);
@@ -226,6 +231,8 @@ void MainWindow::extractFreeSurferOverlays()
     arguments.append(outputDir);
     arguments.append("--preprocess");
     arguments.append("register-overlays-forward");
+    arguments.append("--smoothing");
+    arguments.append(_smoothingAnatomy->text());
     arguments.append("--quit");
 
     QString message = "Move freeSurfer overlays to template space; this takes about 15 minutes";
@@ -324,7 +331,8 @@ void MainWindow::enableAnatomyActionButtons()
     // enable
     _runFreeSurferButton->setEnabled(fileIsRaw  && rawExists);
     _alignAnatomyButton->setEnabled((fileIsBrain && brainExists) || (fileIsRaw  && rawExists));
-    _extractFreeSurferOverlaysButton->setEnabled(brainExists && atlasExists && alignComExists && !subjectIDEmpty);
+    _extractFreeSurferOverlaysButton->setEnabled(fileIsBrain && brainExists &&
+                                                 atlasExists && alignComExists && !subjectIDEmpty);
 
     FUNC_INFO << "colorize" << alignExists << freeExists << overlaysExist;
 

@@ -49,7 +49,8 @@ void MainWindow::createfMRIPage()
     mcBox->setLayout(mcLayout);
 
     auto *smoothingLabel = new QLabel("post-alignment smoothing width");
-    _smoothingfMRI = new QLineEdit("0.");
+    QString smoothText; smoothText.setNum(_savedSettings.fmSmoothing);
+    _smoothingfMRI = new QLineEdit(smoothText);
     _smoothingfMRI->setMaximumWidth(150);
     connect(_smoothingfMRI, SIGNAL(editingFinished()), this, SLOT(changedSmoothingfMRI()));
     auto *alignLayout = new QGridLayout();
@@ -523,6 +524,8 @@ void MainWindow::alignEPI()
         arguments.append("-I");
         arguments.append(comName);
     }
+    arguments.append("--smoothing");
+    arguments.append(_smoothingfMRI->text());
 
     QString message = "Align EPI to template space; this requires interaction (potential tweaking)";
     spawnProcess(process,_fastmapProcess,arguments,message,"");

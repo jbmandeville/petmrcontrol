@@ -47,7 +47,8 @@ void MainWindow::createPETPage()
     _fMRIForPETTemplate = new QLabel("");
     _fMRIForPETFileName = new QLabel("");
 
-    _smoothingPET = new QLineEdit("0.");
+    QString smoothText; smoothText.setNum(_savedSettings.fmSmoothing);
+    _smoothingPET = new QLineEdit(smoothText);
     _smoothingPET->setMaximumWidth(150);
     connect(_smoothingPET, SIGNAL(editingFinished()), this, SLOT(changedSmoothingPET()));
 

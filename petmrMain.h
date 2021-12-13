@@ -93,6 +93,7 @@ private:
         QByteArray imageWindowGeometry;
         QByteArray browserWindowGeometry;
         QString lastTemplateDirectory;   // this should be written locally, not read from qsettings
+        double fmSmoothing=0.;
     };
 
     QWidget *_centralWidget;

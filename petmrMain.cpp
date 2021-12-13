@@ -14,6 +14,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     QCoreApplication::setApplicationName("fastmap");
     QSettings fmSettings;
     _FastmapMSTemplateDirectories = fmSettings.value("templateDirectories","").toStringList();
+    _savedSettings.fmSmoothing    = fmSettings.value("smoothing1stLevel",1.).toDouble();
     FUNC_INFO << "template directories" << _FastmapMSTemplateDirectories;
 
     QCoreApplication::setOrganizationName("Martinos");
