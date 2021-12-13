@@ -414,7 +414,7 @@ void MainWindow::writeAllNotes()
 
     for (int jNote=0; jNote<_tabs->count(); jNote++)
     {
-        out << "*tab* " << _tabs->tabText(jNote);
+        out << "*tab* " << _tabs->tabText(jNote) << "\n";
         out << _noteBox[jNote]->toPlainText() << "\n";
     }
     file.close();
