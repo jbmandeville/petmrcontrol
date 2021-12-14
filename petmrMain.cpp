@@ -175,6 +175,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     readUnpackLog();
     readAvailableScanList();
     readSubjectVariables();
+    setTemplate();
 
     restoreGeometry(_savedSettings.imageWindowGeometry);
     _outputBrowser->restoreGeometry(_savedSettings.browserWindowGeometry);
@@ -249,6 +250,31 @@ void MainWindow::writeSubjectVariables()
     else
         out << "analysis-type nhp-bay7\n";
     file.close();
+}
+
+void MainWindow::setTemplate()
+{
+    FUNC_ENTER;
+    QString fileName = alignCOMFileName(0); // anatomy align.com
+    FUNC_INFO << 1;
+    QString argument = readFileTextArgument(fileName, "template-file");
+    FUNC_INFO << 2;
+    if ( !argument.isEmpty() )
+    {
+        FUNC_INFO << "argument =" << argument;
+        QFileInfo checkFile(argument);
+        QString dirName = checkFile.path();
+        FUNC_INFO << "dirName =" << dirName;
+        int found=-1;
+        for (int jList=0; jList<_FastmapMSTemplateDirectories.count(); jList+=2)
+        {
+            FUNC_INFO << "FM template dir" << _FastmapMSTemplateDirectories.at(jList+1);
+            if ( !dirName.compare(_FastmapMSTemplateDirectories.at(jList+1)) )
+                 found = jList;
+        }
+        if ( found >= 0) _anatomyTemplateDirectory->setCurrentIndex(found/2);
+    }
+    FUNC_EXIT;
 }
 
 void MainWindow::readSmoothing(int which)

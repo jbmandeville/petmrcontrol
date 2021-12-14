@@ -21,13 +21,8 @@
 
 ////////////////////////////////////////////////////
 // Global variables:
-// 1) multi-subject template directory (currently qsettings; should be local)
 //
 // TO DO:
-// 1) PET page: need to make file type variable (in case "raw.nii" is deleted)
-// 2) EPI page: after reslice, update file list (now have to leave page and go back)
-// 3) anatomy page: update file names after runFreeSurfer
-// 4)
 
 ////////////////////////////////////////////////////
 
@@ -92,7 +87,6 @@ private:
         // Image Window
         QByteArray imageWindowGeometry;
         QByteArray browserWindowGeometry;
-        QString lastTemplateDirectory;   // this should be written locally, not read from qsettings
         double fmSmoothing=0.;
     };
 
@@ -215,6 +209,7 @@ private:
     void setupScanTypes();
 
     void updateAnatomyFileName();
+    void setTemplate();
 
     void populateEPIFileNameBox();
     void setDefaultIndexEPIFileNameBox();
