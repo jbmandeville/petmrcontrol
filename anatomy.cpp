@@ -130,7 +130,7 @@ void MainWindow::getSubjectNameFromFreeDir()
             list.append(subDirs.at(subDirs.count()-jList));
             if ( jList != 1 ) list.append("/");
         }
-        _queryDownloadGroupBox->setEnabled(false);
+//        _queryDownloadGroupBox->setEnabled(false);
         setWindowTitle(QString("subject %1 @ %2").arg(_subjectIDFreeSurfer->text()).arg(list));
     }
     else

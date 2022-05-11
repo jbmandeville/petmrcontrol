@@ -32,7 +32,8 @@ class MainWindow : public QMainWindow
 
 private:
 
-    QString _fastmapProcess     = "/usr/pubsw/packages/jip/FM";
+//    QString _fastmapProcess     = "/homes/1/jbm/space1/dev/build-FM-Desktop_Qt_5_6_2_GCC_64bit-Release/FM";
+    QString _fastmapProcess     = "/usr/pubsw/packages/jip/bin/Linux-x86_64/FM";
     QString _findsessionProcess = "/usr/pubsw/bin/findsession";
     QString _dicomDumpProcess   = "/usr/bin/dcmdump";
     QString _scriptDirectory    = "/space/deltabp/1/users/public/script/analyze-petmr/";

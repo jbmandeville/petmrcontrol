@@ -299,7 +299,7 @@ void MainWindow::readUnpackLog()
     {
         FUNC_INFO << "add path" << sourceName;
         _downloadPathBox->addItem(sourceName);
-        _queryDownloadGroupBox->setEnabled(false);
+//        _queryDownloadGroupBox->setEnabled(false);
         _queryDownloadGroupBox->setStyleSheet("background-color:lightYellow;");
         _generateScanListButton->setEnabled(true);
     }
@@ -317,7 +317,7 @@ void MainWindow::readUnpackLog()
     {
         FUNC_INFO << "add subject" << patientName;
         _downloadIDBox->addItem(patientName);
-        _queryDownloadGroupBox->setEnabled(false);
+//        _queryDownloadGroupBox->setEnabled(false);
         _queryDownloadGroupBox->setStyleSheet("background-color:lightYellow;");
     }
 }
