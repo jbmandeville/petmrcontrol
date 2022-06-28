@@ -241,7 +241,8 @@ void MainWindow::readAvailableScanList()
             {
                 FUNC_INFO << "does not exist on disk";
                 scan.existsOnDisk        = false;
-                scan.selectedForDownload = scan.category != category_UNKNOWN;
+//                scan.selectedForDownload = scan.category != category_UNKNOWN;
+                scan.selectedForDownload = false;
             }
             _scans.append(scan);
         }
