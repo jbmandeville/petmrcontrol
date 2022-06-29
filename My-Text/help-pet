@@ -1,0 +1,17 @@
+To create the PET time series, first
+
+1) create the pseudo-muMap on Aether (see "help" on download page)
+2) tranfer the pseudo-muMap to Bay 7 (replace the MRAC-based mu map DICOM series)
+3) run "PET Retro-recon" on Bay 7
+4) push the data to Bourget, and then download it using this program (from download page).
+
+This analysis pipeline uses the EPI volumes to motion-correct the PET data.
+With the correct PET time-series selected, make sure that all PET frames have at least
+a few EPI volumes that fall into the time bins. The motion-correction procedure is
+   a) Average all EPI volumes that fall into a time bin, and reslice the average volume
+      to match the PET geometry. This will create an EPI series matched to the PET series.
+   b) Use AFNI to correct the motion in the EPI series.
+   c) Apply the motion correction parameters to the PET series using AFNI
+
+Alignment simply takes the anatomical (T1) alignment parameters and applies this to the PET frames.
+No interaction is required. Remember to set the post-alignment smoothing width before proceeding.

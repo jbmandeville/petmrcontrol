@@ -419,12 +419,20 @@ void MainWindow::writeAllNotes()
 
 void MainWindow::loadHelp(int whichTab)
 {
-    FUNC_ENTER;
+    FUNC_ENTER << whichTab;
     _helpBrowser->clear();
 
     QFile inFile;
     if ( whichTab == page_download )
         inFile.setFileName(":/My-Text/help-download");
+    else if ( whichTab == page_anatomy )
+        inFile.setFileName(":/My-Text/help-anatomy");
+    else if ( whichTab == page_fMRI )
+        inFile.setFileName(":/My-Text/help-fmri");
+    else if ( whichTab == page_PET )
+        inFile.setFileName(":/My-Text/help-pet");
+    else if ( whichTab == page_clean )
+        inFile.setFileName(":/My-Text/help-clean");
     else
         return;
     if (!inFile.open(QIODevice::ReadOnly | QIODevice::Text))

@@ -1,0 +1,30 @@
+"fMRI" files should be any multi-slice files (usually EPI) that overlap with the PET study
+in time and that the user wants to use for motion-correction of the PET.
+
+First choose a "template" directory. This will contain the motion-correction reference data
+an also define the set of slices in cases where different geometries were used (e.g., one might
+collect DTI, ASL, BOLD, ... etc., and use all of these to help motion-correct the PET). Because
+this pipeline 1) aligns the PET data assuming that it is matched to the anatomical T1, and
+2) uses the EPI to motion-correct the PET, it is best to use EPI data that has been collected
+close in time relative to the MEMPRAGE (T1) scan.
+
+1) Reslice the data if that option is available (if all files have the same number of slices,
+this option will be turned off).
+
+2) Motion-correct the data using the specified template directory and set of volumes.  The list
+of volumes will be used to create an average volume to form the motion-correction reference volume.
+
+3) Align all motion-corrected volumes to the anatomical template. Remember to set the smoothing width
+for all EPI volumes. The starting alignment will be taken from the anatomical file that already
+has been aligned in the "anatomy" page (after running freeSurfer). Using the anatomical alignment
+as a starting point, the alignment of EPI should be very close to the best case. However, EPI can be
+more sensitive to certain effects, like gradient non-linearities, heating-induced shifts, distortions, etc)
+than anatomical scans, so the alignment might need to be tweaked.
+   a) Uncheck "multi-stage",
+   b) flatten the volumes using one of the two right-hand selections,
+   c) double-check the smoothing width, and change it if it is incorrect,
+   d) perform auto-alignment by clicking the calculator button.  When it is done, remember to
+      i) Click the "running man" button in fastmap to replace the original files with the
+          transformed files in program memory. This DOES NOT SAVE the files.
+     ii) Click the "save" button to save the files (align.nii) in the respective directories.
+    iii) Quit fastmap to get back to this program.

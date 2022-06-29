@@ -1,0 +1,6 @@
+Cleaning:
+This page gives the option of cleaning files. Once things are downloaded,
+the DICOMs are used anymore, so those can go. If you remove raw.nii files,
+another download will be required to retrieve them. The advantage of keeping
+motion-corrected files (mc.nii) is that alignment can be refined, or changes
+in smoothing can be tested, starting with those files.
