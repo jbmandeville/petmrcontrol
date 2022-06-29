@@ -60,21 +60,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     mainLayout->addWidget(radioBox);
     mainLayout->addWidget(_tabs);
     _noteBox.resize(_tabs->count());
-    _helpBox.resize(_tabs->count());
     for (int jNote=0; jNote<_tabs->count(); jNote++)
     {
         _noteBox[jNote] = new QTextEdit("");
-        _helpBox[jNote] = new QTextEdit("");
         _noteBox[jNote]->setMaximumHeight(250);
-        _helpBox[jNote]->setMaximumHeight(250);
-
-        mainLayout->addWidget(_noteBox[jNote]);
-        mainLayout->addWidget(_helpBox[jNote]);
         _noteBox[jNote]->setVisible(false);
-        _helpBox[jNote]->setVisible(false);
-        _helpBox[jNote]->setReadOnly(true);
+        mainLayout->addWidget(_noteBox[jNote]);
     }
-    _helpBox[0]->setVisible(true);
 
     _statusBar = this->statusBar();
     _statusBar->setStyleSheet("color:Darkred");
@@ -97,15 +89,21 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     connect(quitAction, &QAction::triggered, this, &MainWindow::exitApp);
 
     QSize iconSizeSmall(24,24);
-    const QIcon *showBrowser = new QIcon(":/My-Icons/textOutput.png");
-    _browserAction = new QAction(*showBrowser,"browser",this);
-    _browserAction->setCheckable(true);
-    _browserAction->setChecked(false);
-    connect(_browserAction, SIGNAL(toggled(bool)), this, SLOT(showBrowser(bool)));
-    _browserAction->setToolTip("Show or hide the process output window");
+    const QIcon *showOutputBrowser = new QIcon(":/My-Icons/textOutput.png");
+    _outputBrowserAction = new QAction(*showOutputBrowser,"browser",this);
+    _outputBrowserAction->setCheckable(true);
+    _outputBrowserAction->setChecked(false);
+    connect(_outputBrowserAction, SIGNAL(toggled(bool)), this, SLOT(showOutputBrowser(bool)));
+    _outputBrowserAction->setToolTip("Show or hide the process output window");
+
+    _helpBrowserAction = new QAction("HELP",this);
+    _helpBrowserAction->setCheckable(true);
+    _helpBrowserAction->setChecked(false);
+    connect(_helpBrowserAction, SIGNAL(toggled(bool)), this, SLOT(showHelpBrowser(bool)));
+    _helpBrowserAction->setToolTip("Show or hide the help window");
 
     _outputBrowser = new QTextBrowser;
-    _browserAction->setChecked(false);
+    _helpBrowser   = new QTextBrowser;
 
     QWidget* spacer = new QWidget();
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -118,46 +116,22 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     QFrame* separator2 = new QFrame();
     separator2->setFrameShape(QFrame::HLine);
-    separator2->setLineWidth(3);
-    separator2->setFixedHeight(20);
+    separator2->setFixedHeight(_statusBar->height());
     separator2->setFrameShadow(QFrame::Raised);
-
-    QFrame* separator3 = new QFrame();
-    separator3->setFrameShape(QFrame::HLine);
-    separator3->setFixedHeight(_statusBar->height());
-    separator3->setFrameShadow(QFrame::Raised);
 
     _showNotesAction = new QAction("Notes",this);
     _showNotesAction->setToolTip("Show or hide the Notes");
-    connect(_showNotesAction, SIGNAL(toggled(bool)), this, SLOT(showNotes(bool)));
-
-    _showHelpAction = new QAction("Help",this);
-    _showHelpAction->setToolTip("Show or hide the Help");
-    connect(_showHelpAction, SIGNAL(toggled(bool)), this, SLOT(showHelp(bool)));
-
-    _showNoneAction = new QAction("None",this);
-    _showNoneAction->setToolTip("Show or hide the Help");
-    connect(_showNoneAction, SIGNAL(toggled(bool)), this, SLOT(showNone()));
-
     _showNotesAction->setCheckable(true);
-    _showHelpAction->setCheckable(true);
-    _showNoneAction->setCheckable(true);
-    auto *helpNotesGroup = new QActionGroup(this);
-    helpNotesGroup->addAction(_showNotesAction);
-    helpNotesGroup->addAction(_showHelpAction);
-    helpNotesGroup->addAction(_showNoneAction);
-    _showHelpAction->setChecked(true);
+    _showNotesAction->setChecked(false);
+    connect(_showNotesAction, SIGNAL(toggled(bool)), this, SLOT(showNotes(bool)));
 
     QToolBar *sideToolBar = addToolBar(tr("tool bar"));
     sideToolBar->setIconSize(iconSizeSmall);
-    sideToolBar->addAction(_browserAction);
+    sideToolBar->addAction(_outputBrowserAction);
+    sideToolBar->addAction(_helpBrowserAction);
     sideToolBar->addWidget(spacer);
-    sideToolBar->addAction(_showHelpAction);
-    sideToolBar->addWidget(separator1);
     sideToolBar->addAction(_showNotesAction);
     sideToolBar->addWidget(separator2);
-    sideToolBar->addAction(_showNoneAction);
-    sideToolBar->addWidget(separator3);
     addToolBar(Qt::LeftToolBarArea, sideToolBar);
 
     /*
@@ -169,8 +143,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     _outputBrowser->resize(defaultWindowSize);
     */
 
-    loadNotesOrHelp(true);
-    loadNotesOrHelp(false);
+    loadNotes();
+    loadHelp(page_download);
     openedAnatomyPage();
     readUnpackLog();
     readAvailableScanList();
@@ -179,6 +153,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     restoreGeometry(_savedSettings.imageWindowGeometry);
     _outputBrowser->restoreGeometry(_savedSettings.browserWindowGeometry);
+    _helpBrowser->restoreGeometry(_savedSettings.browserWindowGeometry);
 }
 
 void MainWindow::readSubjectVariables()
@@ -395,21 +370,14 @@ void MainWindow::dataOriginChanged()
 void MainWindow::showNone()
 {
     for (int jNote=0; jNote<_noteBox.count(); jNote++)
-    {
         _noteBox[jNote]->setVisible(false);
-        _helpBox[jNote]->setVisible(false);
-    }
 }
 
 void MainWindow::showNotes(bool show)
 {
     showNone();
-
     int tabIndex = _tabs->currentIndex();
-    if ( show )
-        _noteBox[tabIndex]->setVisible(true);
-    else
-        _helpBox[tabIndex]->setVisible(true);
+    _noteBox[tabIndex]->setVisible(show);
 }
 
 void MainWindow::changedPage(int index)
@@ -417,6 +385,7 @@ void MainWindow::changedPage(int index)
     FUNC_ENTER << index;
     showNotes(_showNotesAction->isChecked());
     writeAllNotes();
+    loadHelp(index);
 
     if ( index == page_download )
         openedAnatomyPage();
@@ -448,20 +417,44 @@ void MainWindow::writeAllNotes()
     FUNC_EXIT;
 }
 
-void MainWindow::loadNotesOrHelp(bool notes)
+void MainWindow::loadHelp(int whichTab)
+{
+    FUNC_ENTER;
+    _helpBrowser->clear();
+
+    QFile inFile;
+    if ( whichTab == page_download )
+        inFile.setFileName(":/My-Text/help-download");
+    else
+        return;
+    if (!inFile.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+
+    QTextStream in_stream(&inFile);
+    QString notesString;
+    while ( !in_stream.atEnd() )
+    {
+        QString line = in_stream.readLine();
+        notesString = notesString + line + "\n";
+    }
+    inFile.close();
+
+    _helpBrowser->append(notesString);
+    FUNC_EXIT;
+}
+
+void MainWindow::loadNotes()
 {
     FUNC_ENTER;
     QFile inFile;
-    if ( notes )
-        inFile.setFileName("notes.dat");
-    else
-        inFile.setFileName(_scriptDirectory+"help.dat");
+    inFile.setFileName("notes.dat");
     if (!inFile.open(QIODevice::ReadOnly | QIODevice::Text))
         return;
 
     QTextStream in_stream(&inFile);
     QRegExp rx("[,\\s]");// match a comma or a space
 
+    // find the 1st tab
     QStringList stringList;
     bool newTab = false;
     while ( !in_stream.atEnd() && !newTab )
@@ -475,8 +468,9 @@ void MainWindow::loadNotesOrHelp(bool notes)
     }
     if ( !newTab ) return;
 
+    // go through file and read text for each tab
     int whichTab = whichTabName(stringList.at(1));
-    newTab = false; QString notesString;
+    QString notesString;
     while ( !in_stream.atEnd() )
     {
         FUNC_INFO << "whichTab" << whichTab;
@@ -496,20 +490,14 @@ void MainWindow::loadNotesOrHelp(bool notes)
         else if ( whichTab >= 0 )
         {
             FUNC_INFO << "assign:" << whichTab << notesString;
-            if ( notes )
-                _noteBox[whichTab]->setText(notesString);
-            else
-                _helpBox[whichTab]->setText(notesString);
+            _noteBox[whichTab]->setText(notesString);
             notesString.clear();
             whichTab = whichTabName(stringList.at(1));
             FUNC_INFO << "next tab" << whichTab;
         }
     }
-    if ( notes && whichTab >= 0 )
+    if ( whichTab >= 0 )
         _noteBox[whichTab]->setText(notesString);
-    else if ( whichTab >= 0 )
-        _helpBox[whichTab]->setText(notesString);
-    notesString.clear();
 
     inFile.close();
     FUNC_EXIT;

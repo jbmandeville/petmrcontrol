@@ -1,0 +1,39 @@
+1) First enter a subject session identifer and use "query" to find the right dataset.
+
+2) "Generate scan list" will show all runs with categories
+
+3) Check the scans to be downloaded. Then "Download" the scans. This function uses "unpacksdcmdir".
+
+4) When done, scans existing on disk are colored yellow. You can always query again if more data
+   is send to Bourget for this dataset, and you can download again as desired.
+
+Scans will be downloaded as both DICOMs and as "raw.nii" files.
+Protocol info can be found in files "raw.nii-infodump.dat".
+Time stamps will be extracted and put into files named "time-tags.txt".
+
+As soon as you download the data, do the following:
+
+a) Go to anatomy and start freeSurfer (takes hours)
+
+b) Start generation of pseudo-uMap on Aether
+   1) From Linux, create a directory named "transfer" on this subject directory
+   2) Copy the MEMPRAGE directory (1 volume, generally last T1 file) to "transfer"
+         cd transfer
+         cp ../t1/004 MEMPRAGE
+   3) Copy the last MRAC directory to "transfer"
+         cp ../mrac/009 UMAP
+   4) remove all non-DICOM files from MEMPRAGE and MRAC
+         cd MEMPRAGE; rm raw* time* dcm*
+         cd UMAP;     rm raw* time* dcm*
+   5) log onto Aether; create a named subject folder on d:/scratch with sub-directories named
+      MR and MR_PET. Under MR, create empty folder pseudo_muMAP. Then transfer directories
+      MEMPRAGE and UMAP to the same location as pseudo_muMAP under directory MR.
+   6) start Matlab and then type "pianoMmr"
+   7) click the "pseudo-muMap" button, select the MEMPRAGE folder and then the 1st DICOM file,
+      and do the same for the UMAP directory.
+   8) Enter your Martinos name and password A LOT OF TIMES when prompted.  You should see
+            "Waiting 1800 sec to start validating ..."
+      It will take some time (an hour?) to finish
+   9) When it is finished, transfer (e.g. WinSCP) directory pseudo_muMAP back to the cluster
+      under the "transfer" directory. You can now reconstruct the PET on Bay 7. This will require
+      copy the "pseudo_muMAP" directory to Bay 7 and running the PET RetroRecon application.

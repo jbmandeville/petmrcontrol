@@ -1,0 +1,16 @@
+1) Set the subject ID. This generally is a short ID used to de-identify subjects.
+
+2) Make sure the subject directory is correct, as well as the file name (raw.nii).
+
+3) Run FreeSurfer. This will generally take a day or a night.
+
+4) When Freesurfer is done, an extracted brain will be placed on the anatomy directory.
+   This should be selected automatically as the file name (brain.nii). Now perform alignment.
+   This step will bring up FastMap. Click the calculator button to peform affine alignment.
+   When it is done, remember to
+
+   a) Click the "running man" button to replace the original file with the transformed file
+      in program memory.
+
+   b) Click the "save" button to save the file (align.nii) to the anatomy directory.
+

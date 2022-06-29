@@ -99,14 +99,13 @@ private:
     QWidget *_petPage;
     QWidget *_cleanPage;
     QStatusBar *_statusBar;
-    QAction *_browserAction;
+    QAction *_outputBrowserAction;
+    QAction *_helpBrowserAction;
     QVector<QTextEdit *> _noteBox;
-    QVector<QTextEdit *> _helpBox;
     QAction *_showNotesAction;
-    QAction *_showHelpAction;
-    QAction *_showNoneAction;
 
     QTextBrowser *_outputBrowser;
+    QTextBrowser *_helpBrowser;
 
     // Radiobuttons
     QRadioButton *_radioButtonHumanBay7;
@@ -205,7 +204,8 @@ private:
     void readSubjectVariables();
     void readSmoothing(int which);
     void writeAllNotes();
-    void loadNotesOrHelp(bool notes);
+    void loadNotes();
+    void loadHelp(int whichTab);
     int whichTabName(QString name);
     void setupScanTypes();
 
@@ -260,7 +260,7 @@ private:
     inline void finishedProcess()
     {
         _statusBar->clearMessage();
-        showBrowser(false);
+        showOutputBrowser(false);
         _centralWidget->setEnabled(true);
     }
 
@@ -289,14 +289,18 @@ private slots:
         QProcess *process = qobject_cast<QProcess*>(sender());
         _outputBrowser->append(process->readAllStandardOutput());
     }
-    inline void showBrowser(bool show)
+    inline void showOutputBrowser(bool show)
     {
         if ( show ) _outputBrowser->show();
         else        _outputBrowser->hide();
     }
+    inline void showHelpBrowser(bool show)
+    {
+        if ( show ) _helpBrowser->show();
+        else        _helpBrowser->hide();
+    }
     void showNone();
     void showNotes(bool show);
-    inline void showHelp(bool show) {showNotes(!show);}
 
     inline void changedAnatomyFileName(int indexInBox) {enableAnatomyActionButtons();}
     void changedAnatomyDirName(int indexInBox);

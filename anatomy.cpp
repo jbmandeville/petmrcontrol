@@ -223,7 +223,7 @@ void MainWindow::extractFreeSurferOverlays()
     arguments.append(brainName);
     arguments.append("-A");
     arguments.append(atlasName);
-    arguments.append("-I");
+    arguments.append("--alignment-file");
     arguments.append(comName);
     arguments.append("-T");
     arguments.append(_anatomyTemplateDirectory->currentText());
@@ -267,7 +267,7 @@ void MainWindow::alignAnatomyToTemplate()
     if ( anatomyFileExists("align.com") )
     {
         QString comName = "t1/" + _anatomyDirBox->currentText() + "/align.com";
-        arguments.append("-I");
+        arguments.append("--alignment-file");
         arguments.append(comName);
     }
 

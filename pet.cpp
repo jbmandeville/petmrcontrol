@@ -564,7 +564,7 @@ void MainWindow::alignPET()
     arguments.append("alignment");
     arguments.append("-T");
     arguments.append(_anatomyTemplateDirectory->currentText());
-    arguments.append("-I");
+    arguments.append("--alignment-file");
     arguments.append(_alignFileNameForPETRegistration);
     arguments.append("--smoothing");
     arguments.append(_smoothingPET->text());

@@ -515,13 +515,13 @@ void MainWindow::alignEPI()
     if ( alignEPIComExists )
     {
         QString comName = "epi/" + _fMRITemplateDirBox->currentText() + "/align.com";
-        arguments.append("-I");
+        arguments.append("--alignment-file");
         arguments.append(comName);
     }
     else if ( alignT1ComExists )
     {
         QString comName = "t1/" + _anatomyDirBox->currentText() + "/align.com";
-        arguments.append("-I");
+        arguments.append("--alignment-file");
         arguments.append(comName);
     }
     arguments.append("--smoothing");

@@ -2,5 +2,7 @@
     <qresource prefix="/">
         <file>My-Icons/textOutput.png</file>
         <file>My-Icons/fileCabinet.png</file>
+        <file>My-Text/help-download</file>
+        <file>My-Text/help-anatomy</file>
     </qresource>
 </RCC>
