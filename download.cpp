@@ -55,8 +55,13 @@ void MainWindow::createDownloadPage()
     connect(_downloadDataButton, SIGNAL(pressed()), this, SLOT(downloadData()));
     _downloadDataButton->setToolTip("Download all scans that are checked in the box above.");
 
+    _setupTransferDirectory = new QPushButton("Setup transfer directory",_downLoadPage);
+    connect(_setupTransferDirectory, SIGNAL(pressed()), this, SLOT(setupTransferDirectory()));
+    _setupTransferDirectory->setToolTip("Create directory to transfer to Aether for making pseudo-muMap");
+
     auto *downloadLayout = new QVBoxLayout();
     downloadLayout->addWidget(_downloadDataButton);
+    downloadLayout->addWidget(_setupTransferDirectory);
     auto *downloadBox = new QGroupBox("Download data from server");
     downloadBox->setLayout(downloadLayout);
 
@@ -70,7 +75,9 @@ void MainWindow::createDownloadPage()
     QFileInfo checkDownFile(downFile);
     if (checkDownFile.exists() && checkDownFile.isFile())
         _downloadDataButton->setStyleSheet("background-color:lightYellow;");
+
     _downloadDataButton->setEnabled(enableDownloadData());
+    _setupTransferDirectory->setEnabled(enableTransferDirectory());
 }
 
 bool MainWindow::enableDownloadData()
@@ -79,6 +86,24 @@ bool MainWindow::enableDownloadData()
     for (int jList=0; jList<_scanItems.count(); jList++)
         enable |= _scanItems[jList].checkState();
     return enable;
+}
+bool MainWindow::enableTransferDirectory()
+{
+    int nChecked=0;
+    bool foundT1=false;  bool foundUMap=false;
+    for (int jList=0; jList<_scanItems.count(); jList++)
+    {
+        if ( _scanItems[jList].checkState() ) nChecked++;
+        downloadScan scan = _scans.at(jList);
+        FUNC_INFO << jList << _scanItems[jList].checkState() << (scan.category == category_T1) << (scan.category == category_MRAC) << scan.dim.t << scan.existsOnDisk;
+        scan.isAntomicalT1 = _scanItems[jList].checkState() && (scan.category == category_T1)   && (scan.dim.t == 1) && (scan.existsOnDisk);
+        scan.isMRAC        = _scanItems[jList].checkState() && (scan.category == category_MRAC) && (scan.dim.t == 1) && (scan.existsOnDisk);
+        foundT1   |= scan.isAntomicalT1;
+        foundUMap |= scan.isMRAC;
+        _scans[jList] = scan;
+    }
+    FUNC_EXIT << nChecked << foundT1 << foundUMap;
+    return (nChecked == 2) && foundT1 && foundUMap;
 }
 
 void MainWindow::queryDownloadPaths()
@@ -113,6 +138,7 @@ void MainWindow::queryDownloadPaths()
 
     _generateScanListButton->setEnabled(true);
     _downloadDataButton->setEnabled(enableDownloadData());
+    _setupTransferDirectory->setEnabled(enableTransferDirectory());
 }
 
 void MainWindow::generateScanList()
@@ -135,6 +161,7 @@ void MainWindow::finishedGeneratingScanList(int exitCode, QProcess::ExitStatus e
     readAvailableScanList();
     finishedProcess();
     _downloadDataButton->setEnabled(enableDownloadData());
+    _setupTransferDirectory->setEnabled(enableTransferDirectory());
     qInfo() << "finished: generating scan list";
 }
 
@@ -284,6 +311,7 @@ void MainWindow::changedDownloadScanCheckBox(QListWidgetItem *item)
     }
     _scans[iSelected].selectedForDownload = _scanItems[iSelected].checkState();
     _downloadDataButton->setEnabled(enableDownloadData());
+    _setupTransferDirectory->setEnabled(enableTransferDirectory());
 }
 
 void MainWindow::readUnpackLog()
@@ -384,11 +412,77 @@ void MainWindow::finishedDownloadData(int exitCode, QProcess::ExitStatus exitSta
     finishedProcess();
 }
 
-void MainWindow::finishedDownloadDataNew()
+void MainWindow::setupTransferDirectory()
 {
+    FUNC_ENTER;
+    QDir const transferDir(".");
+    if ( !transferDir.mkpath("transfer") )
+    {
+        FUNC_INFO << "failed to make transfer";
+        QMessageBox msgBox;
+        QString error = QString("Error attempting to make directory %1").arg(transferDir.path());
+        msgBox.setText(error);
+        msgBox.setIcon(QMessageBox::Warning);
+        msgBox.exec();
+        return;
+    }
+    QString transferPath = transferDir.path()+"/transfer";
+    // MR directory containing MEMPRAGE, UMAP, pseudo_muMap
+    QDir const MRDir(transferPath);
+    QDir const MRPETDir(transferPath);
+    MRDir.mkdir("MR");
+    MRPETDir.mkdir("MR_PET");
 
+    QString MRPath = MRDir.path()+"/MR";
+    FUNC_INFO << "MR Path" << MRPath;
+
+    QDir const MPRAGEDir(MRPath);
+    QDir const UMapDir(MRPath);
+    QDir const pseudoDir(MRPath);
+    MPRAGEDir.mkdir("MEMPRAGE");
+    UMapDir.mkdir("UMAP");
+    pseudoDir.mkdir("pseudo_muMap");
+    FUNC_INFO << "MPRAGE" << MPRAGEDir.dirName() << MPRAGEDir.path();
+
+    // copy dicoms into MEMPRAGE and UMAP directories
+    copyDICOMs(true,  MRPath+"/MEMPRAGE");
+    copyDICOMs(false, MRPath+"/UMAP");
+
+}
+
+void MainWindow::copyDICOMs(bool T1, QString destinationDir)
+{
+    FUNC_ENTER << T1 << destinationDir;
+    int whichScan = -1;
     for (int jList=0; jList<_scans.size(); jList++)
-        reformatAcquisitionTimes(_scans.at(jList));
+    {
+        downloadScan scan = _scans.at(jList);
+        if ( (T1 && scan.isAntomicalT1) || (!T1 && scan.isMRAC) )
+            whichScan = jList;
+        FUNC_INFO << jList << "anatomical" << scan.isAntomicalT1 << "MRAC" << scan.isMRAC << whichScan;
+    }
+    if ( whichScan < 0 )
+        qFatal("Programming error in copyDICOMs");
+
+    QString sourceDir;
+    if ( T1 )
+        sourceDir = "./t1/" + _scans.at(whichScan).scanNumberNew;
+    else
+        sourceDir = "./mrac/" + _scans.at(whichScan).scanNumberNew;
+
+    FUNC_INFO << "sourceDir" << sourceDir;
+    QDir dir(sourceDir);
+    QStringList const fileList = dir.entryList( {"MR.*"}, QDir::Files | QDir::NoSymLinks);
+    FUNC_INFO << "DICOM list" << fileList;
+
+    for (int jFile=0; jFile<fileList.size(); jFile++)
+    {
+        QString sourceName = sourceDir + "/" + fileList.at(jFile);
+        QString destName = destinationDir + "/" + fileList.at(jFile);
+        QFile sourceFile(sourceName);
+        sourceFile.copy(destName);
+    }
+    FUNC_EXIT;
 }
 
 void MainWindow::reformatAcquisitionTimes(downloadScan scan)

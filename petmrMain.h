@@ -79,6 +79,8 @@ private:
         iPoint4D dim;
         scanCategory category;
         QString categoryName;
+        bool isAntomicalT1=false;
+        bool isMRAC=false;
         bool existsOnDisk;
         bool selectedForDownload;
         bool selectedForCleaning;
@@ -122,6 +124,7 @@ private:
     QPushButton *_generateScanListButton;
     QPushButton *_readAvailableScanList;
     QPushButton *_downloadDataButton;
+    QPushButton *_setupTransferDirectory;
     QGroupBox *_queryDownloadGroupBox;
 
     // Anatomy page
@@ -200,6 +203,7 @@ private:
     void readUnpackLog();
     QString readFileTextArgument(QString fileName, QString parameterName);
     bool enableDownloadData();
+    bool enableTransferDirectory();
     void reformatAcquisitionTimes(downloadScan scan);
     void readSubjectVariables();
     void readSmoothing(int which);
@@ -208,6 +212,7 @@ private:
     void loadHelp(int whichTab);
     int whichTabName(QString name);
     void setupScanTypes();
+    void copyDICOMs(bool T1, QString destinationDir);
 
     void updateAnatomyFileName();
     void setTemplate();
@@ -313,7 +318,7 @@ private slots:
     void queryDownloadPaths();
     void generateScanList();
     void downloadData();
-    void finishedDownloadDataNew();
+    void setupTransferDirectory();
     void aboutApp();
     void exitApp();
     void changedPage(int index);
