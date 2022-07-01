@@ -103,6 +103,16 @@ bool MainWindow::enableTransferDirectory()
         _scans[jList] = scan;
     }
     FUNC_EXIT << nChecked << foundT1 << foundUMap;
+
+    // does transfer directory already exist
+    QDir const MEMPRAGE("./transfer/MR/MEMPRAGE");
+    if ( MEMPRAGE.exists() )
+    {
+        QStringList const fileList = MEMPRAGE.entryList( {"MR.*"}, QDir::Files | QDir::NoSymLinks);
+        if ( fileList.size() != 0 )
+            _setupTransferDirectory->setStyleSheet("background-color:lightYellow;");
+    }
+
     return (nChecked == 2) && foundT1 && foundUMap;
 }
 
