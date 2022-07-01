@@ -211,7 +211,7 @@ void MainWindow::openedPETPage()
     }
     QStringList const petFolderList = petTopDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
     FUNC_INFO << petFolderList;
-    _petDirBox->clear(); int iSelect=-1;
+    _petDirBox->clear(); int iSelect=-1; int iCount=0;
     for (int jList=0; jList<petFolderList.size(); jList++)
     {
         if ( petFileExists(petFolderList.at(jList),"time-tags.txt") ||
@@ -220,13 +220,14 @@ void MainWindow::openedPETPage()
         {
             _petDirBox->addItem(petFolderList.at(jList));
             FUNC_INFO << "add to petDirBox" << petFolderList.at(jList);
+            iCount++;
         }
-        if ( petFileExists(petFolderList.at(jList),"align.nii") ) iSelect = jList;
+        if ( petFileExists(petFolderList.at(jList),"align.nii") ) iSelect = iCount;
     }
     if ( iSelect < 0 )
         _petDirBox->setCurrentIndex(_petDirBox->count()-1);
     else
-        _petDirBox->setCurrentIndex(iSelect);
+        _petDirBox->setCurrentIndex(iSelect-1);
     FUNC_INFO << "petDirBox text #1" << _petDirBox->currentText() << _petDirBox->currentIndex();
 
     QDir const fMRITopDir("./epi");
