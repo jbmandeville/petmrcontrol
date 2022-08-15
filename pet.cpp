@@ -74,13 +74,13 @@ void MainWindow::createPETPage()
     connect(_motionCorrectMatchingMRIButton, SIGNAL(pressed()), this, SLOT(motionCorrectMatchingMRI()));
 
     _motionCorrectPETButton = new QPushButton("Apply motion-correction to PET (raw -->mc)");
-    connect(_motionCorrectPETButton,         SIGNAL(pressed()), this, SLOT(applyMotionCorrectionToPET()));
+    connect(_motionCorrectPETButton, SIGNAL(pressed()), this, SLOT(applyMotionCorrectionToPET()));
 
     _alignPETButton   = new QPushButton("Align PET time series (mc --> align)");
-    connect(_alignPETButton,                 SIGNAL(pressed()), this, SLOT(alignPET()));
+    connect(_alignPETButton,         SIGNAL(pressed()), this, SLOT(alignPET()));
 
     _analyzeTAC       = new QPushButton("Create kinetic analysis");
-    connect(_analyzeTAC,                     SIGNAL(pressed()), this, SLOT(analyzeTAC()));
+    connect(_analyzeTAC,             SIGNAL(pressed()), this, SLOT(analyzeTAC()));
 
     auto *smoothingLabel = new QLabel("post-alignment smoothing width");
     _smoothingPET = new QLineEdit("0.");
@@ -178,7 +178,7 @@ void MainWindow::changedPETFrameSelection(QListWidgetItem *item)
                 if  ( _matchingEPI[iFrame].at(jPair).x != currentRun )
                 {
                     currentRun = _matchingEPI[iFrame].at(jPair).x;
-                    qInfo() << "Overlap woith run" << _fMRIFilesForPETMC.at(currentRun).name;
+                    qInfo() << "Overlap with run" << _fMRIFilesForPETMC.at(currentRun).name;
                 }
                 qInfo() << "time point" << _matchingEPI[iFrame].at(jPair).y;
             }
@@ -308,14 +308,16 @@ void MainWindow::enablePETActionButtons()
     bool timeTagsExist = petFileExists("time-tags.txt");
 
     if (  bay6 )
-        _alignPETButton->setEnabled(petFileExists("raw.nii"));
+        _alignPETButton->setEnabled(petFileExists("mc.nii"));
     else
     {
         _motionCorrectMatchingMRIButton->setEnabled( !_fMRIForPETTemplate->text().isEmpty() && _petDirBox->count() > 0);
         _motionCorrectPETButton->setEnabled(_petDirBox->count() > 0 && petFileExists("mc.dat"));
         _doEverythingPETButton->setEnabled(petFileExists("raw.nii") && anatomyFileExists("align.com") &&
                                            !_fMRIForPETTemplate->text().isEmpty() );
-        _alignPETButton->setEnabled(petFileExists("mc.nii")    && anatomyFileExists("align.com"));
+        _alignPETButton->setEnabled(petFileExists("mc.nii") && anatomyFileExists("align.com")
+                && _petFileBox->currentText().compare("mc.nii"));
+
     }
     _motionCorrectMatchingMRIButton->setVisible(!bay6);
     _motionCorrectPETButton->setVisible(!bay6);
@@ -383,6 +385,7 @@ void MainWindow::findPETandFMRIOverlap()
     _matchingEPI.resize(_petFile.dim.t);
     for (int jFrame=0; jFrame<_petFile.dim.t; jFrame++)
     {
+        _matchingEPI[jFrame].clear();
         dPoint2D timeFrame = petFrameTime(jFrame);
         for (int jFile=0; jFile<_fMRIFilesForPETMC.size(); jFile++)
         {
@@ -439,7 +442,7 @@ void MainWindow::motionCorrectMatchingMRI()
     // arguments: [EPI MC template dir] [pet dir]
     arguments.append(_fMRIForPETTemplate->text());
     arguments.append(_petDirBox->currentText());
-    QString message = "Motion-correct PET-matched EPI volumes; this takes about 10 minutes";
+    QString message = "Motion-correct PET-matched EPI volumes; get a coffee";
     spawnProcess(process,exe,arguments,message,"Motion-correct matching EPI");
     FUNC_EXIT;
 }
@@ -472,7 +475,7 @@ void MainWindow::applyMotionCorrectionToPET()
     // arguments: [pet dir] [mc file name]
     arguments.append(_petDirBox->currentText());
     arguments.append("mc.dat");
-    QString message = "Apply EPI-based motion-correction to PET; this takes about 10 minutes";
+    QString message = "Apply EPI-based motion-correction to PET; get another coffee";
     spawnProcess(process,exe,arguments,message,"Apply motion correction to PET");
     FUNC_EXIT;
 }
@@ -563,7 +566,7 @@ void MainWindow::alignPET()
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedFMAlignPET(int, QProcess::ExitStatus)));
 
     QStringList arguments;
-    QString mcFileName = "pet/" + _petDirBox->currentText() + "/raw.nii";
+    QString mcFileName = "pet/" + _petDirBox->currentText() + "/mc.nii";
     arguments.append(mcFileName);
     arguments.append("-O");
     arguments.append("alignment");
@@ -583,7 +586,8 @@ void MainWindow::alignPET()
         arguments.append("--quit");
     }
 
-    QString message = "Align/register PET to template space; this takes about 10 minutes";
+    qInfo() << _fastmapProcess << arguments;
+    QString message = "Align/register PET to template space; this is reasonably quick";
     spawnProcess(process,_fastmapProcess,arguments,message,"");
 
     FUNC_EXIT;

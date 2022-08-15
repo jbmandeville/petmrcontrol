@@ -235,7 +235,7 @@ void MainWindow::extractFreeSurferOverlays()
     arguments.append(_smoothingAnatomy->text());
     arguments.append("--quit");
 
-    QString message = "Move freeSurfer overlays to template space; this takes about 15 minutes";
+    QString message = "Move freeSurfer overlays to template space; take a quick bathroom break";
     spawnProcess(process,_fastmapProcess,arguments,message,"");
     FUNC_EXIT;
 }
@@ -362,7 +362,7 @@ void MainWindow::runFreeSurfer()
         QStringList arguments;
         arguments.append(_anatomyDirBox->currentText());
         arguments.append(_subjectIDFreeSurfer->text());
-        QString message = "Run freeSurfer segmentation; this takes hours";
+        QString message = "Run freeSurfer segmentation; you have time for a good night's sleep now";
         spawnProcess(process,exe,arguments,message,"Run freeSurfer: recon-all");
     }
 }

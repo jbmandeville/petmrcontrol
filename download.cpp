@@ -162,7 +162,7 @@ void MainWindow::generateScanList()
     QStringList arguments;
     QString exe = _scriptDirectory + "generateScanList.csh";
     arguments.append(_downloadPathBox->currentText());
-    QString message = "Create scan list (scan-list.log); this takes about 15 minutes";
+    QString message = "Create scan list (scan-list.log); get a coffee";
     spawnProcess(process,exe,arguments,message,"Generate scan list");
 }
 
@@ -407,7 +407,7 @@ void MainWindow::downloadData()
     QString exe = _scriptDirectory + "unpackData.csh";
     arguments.append(_downloadPathBox->currentText());
 
-    QString message = "Download data from server; this takes about 20 minutes";
+    QString message = "Download data from server; get another coffee";
     spawnProcess(process,exe,arguments,message,"Download Progress");
 }
 

@@ -611,7 +611,7 @@ void MainWindow::motionCorrectEPI()
         if ( includeFile )
             arguments.append(_fMRIFiles[jFile].name);
     }
-    QString message = "Motion-correct EPI; this takes about 10 minutes";
+    QString message = "Motion-correct EPI; get a coffee and snack";
     spawnProcess(process,exe,arguments,message,"Motion-correct EPI");
 }
 void MainWindow::finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus)
