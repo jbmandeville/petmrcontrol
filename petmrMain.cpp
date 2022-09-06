@@ -360,6 +360,26 @@ void MainWindow::changedSmoothingPET()
     _smoothingPET->setText(number);
 }
 
+void MainWindow::changedEPITimeTagCorrection()
+{
+    bool ok;
+    _EPITimeCorrection = _correctEPITimeTags->text().toDouble(&ok);
+    if ( !ok ) _EPITimeCorrection = 0.;
+    QString number; number.setNum(_EPITimeCorrection);
+    _correctEPITimeTags->setText(number);
+    changedfMRIFileName(_fMRIFileBox->currentIndex());
+}
+
+void MainWindow::changedPETTimeTagCorrection()
+{
+    bool ok;
+    _PETTimeCorrection = _correctPETTimeTags->text().toDouble(&ok);
+    if ( !ok ) _PETTimeCorrection = 0.;
+    QString number; number.setNum(_PETTimeCorrection);
+    _correctPETTimeTags->setText(number);
+    updatePETDirBox(_petDirBox->currentIndex());
+}
+
 void MainWindow::dataOriginChanged()
 {
     _freeSurferGroupBox->setVisible(_radioButtonHumanBay7->isChecked());
@@ -591,7 +611,7 @@ QString MainWindow::getDimensions(QString fileName, iPoint4D &dim)
     }
 }
 
-void MainWindow::getTimeTags(QString fileName, dVector &timeTags, sVector &timeText )
+void MainWindow::getTimeTags(QString fileName, int correction, dVector &timeTags, sVector &timeText )
 {
     FUNC_ENTER << fileName;
     timeTags.clear();  timeText.clear();
@@ -613,9 +633,27 @@ void MainWindow::getTimeTags(QString fileName, dVector &timeTags, sVector &timeT
 //        FUNC_INFO << stringList;
         if ( stringList.count() >= 3 )
         {
-            double value = stringList.at(1).toDouble();
+            int value = stringList.at(1).toInt() + correction;
             timeTags.append(value);
-            timeText.append(stringList.at(2));
+            int hours = qFloor(value/3600.);
+            int minutes = qFloor((value-3600*hours)/60.);
+            int seconds = value - 3600*hours - 60*minutes;
+            QString hourText, minuteText, secondText;
+            if ( hours < 10 )
+                hourText = QString("0%1").arg(hours);
+            else
+                hourText.setNum(hours);
+            if ( minutes < 10 )
+                minuteText = QString("0%1").arg(minutes);
+            else
+                minuteText.setNum(minutes);
+            if ( seconds < 10 )
+                secondText = QString("0%1").arg(seconds);
+            else
+                secondText.setNum(seconds);
+            QString newTimeText = QString("%1:%2.%3").arg(hourText).arg(minuteText).arg(secondText);
+            timeText.append(newTimeText);
+//            timeText.append(stringList.at(2));
         }
     }
     inFile.close();

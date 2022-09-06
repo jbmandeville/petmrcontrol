@@ -278,7 +278,7 @@ void MainWindow::changedfMRIFileName(int indexInBox)
     {
         FourDFile file;
         QString tagsName = "epi/" + folderList.at(jList) + "/time-tags.txt";
-        getTimeTags(tagsName,file.timeTags,file.timeText);
+        getTimeTags(tagsName,_EPITimeCorrection,file.timeTags,file.timeText);
         if ( file.timeTags.size() != 0 )
             nFiles++;
     }
@@ -292,7 +292,7 @@ void MainWindow::changedfMRIFileName(int indexInBox)
         FourDFile file;
         file.name        = "epi/" + folderList.at(jList) + "/" + _fMRIFileBox->currentText();
         QString tagsName = "epi/" + folderList.at(jList) + "/time-tags.txt";
-        getTimeTags(tagsName,file.timeTags,file.timeText);
+        getTimeTags(tagsName,_EPITimeCorrection,file.timeTags,file.timeText);
         QString text = getDimensions(file.name, file.dim);
         FUNC_INFO << "jList" << jList << "file" << file.name;
         if ( !folderList.at(jList).compare(_fMRITemplateDirBox->currentText()) )

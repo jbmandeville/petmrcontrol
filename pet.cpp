@@ -243,7 +243,7 @@ void MainWindow::openedPETPage()
         fMRIFile.name = epiFolderList.at(jList);
         QString tagsFileName = fMRITopDir.absolutePath() + "/" + fMRIFile.name + "/time-tags.txt";
         // Because only the time dimension is needed here for the fMRI files, just use the time-tags to avoid file searches
-        getTimeTags(tagsFileName,fMRIFile.timeTags,fMRIFile.timeText);
+        getTimeTags(tagsFileName,_EPITimeCorrection,fMRIFile.timeTags,fMRIFile.timeText);
         fMRIFile.dim.t = fMRIFile.timeTags.size();
         if ( fMRIFile.dim.t > 0 )
             _fMRIFilesForPETMC.append(fMRIFile);
@@ -316,7 +316,7 @@ void MainWindow::enablePETActionButtons()
         _doEverythingPETButton->setEnabled(petFileExists("raw.nii") && anatomyFileExists("align.com") &&
                                            !_fMRIForPETTemplate->text().isEmpty() );
         _alignPETButton->setEnabled(petFileExists("mc.nii") && anatomyFileExists("align.com")
-                && _petFileBox->currentText().compare("mc.nii"));
+                && !_petFileBox->currentText().compare("mc.nii"));
 
     }
     _motionCorrectMatchingMRIButton->setVisible(!bay6);
@@ -350,7 +350,7 @@ void MainWindow::updatePETDirBox(int indexInBox)
     if ( petFileExists(_petFileBox->currentText()) )
     {
         QString fileName = "pet/" + _petDirBox->currentText() + "/time-tags.txt";
-        getTimeTags(fileName,_petFile.timeTags,_petFile.timeText);
+        getTimeTags(fileName,_PETTimeCorrection,_petFile.timeTags,_petFile.timeText);
         getDimensions(_petFile.name, _petFile.dim);
         FUNC_INFO << "dim.t" << _petFile.dim.t;
         findPETandFMRIOverlap();

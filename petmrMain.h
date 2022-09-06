@@ -93,6 +93,10 @@ private:
         double fmSmoothing=0.;
     };
 
+    // time tag corrections
+    int _EPITimeCorrection=0;
+    int _PETTimeCorrection=0;
+
     QWidget *_centralWidget;
     QTabWidget *_tabs;
     QWidget *_downLoadPage;
@@ -168,6 +172,8 @@ private:
     QGroupBox *_mcPETBox;
 
     // clean page
+    QLineEdit *_correctEPITimeTags;
+    QLineEdit *_correctPETTimeTags;
     QListWidget *_cleanScanTypesBox;
     QVector<QListWidgetItem> _cleanScanTypeItems;
     QPushButton *_cleanDICOMs;
@@ -234,7 +240,7 @@ private:
     void updateCleaningList();
 
     QString getDimensions(QString fileName, iPoint4D &dim);
-    void getTimeTags(QString fileName, dVector &timeTags, sVector &timeText );
+    void getTimeTags(QString fileName, int correction, dVector &timeTags, sVector &timeText );
     QString twoDigits(short time);
     dPoint2D petFrameTime(int iFrame);
     void writeJipCommandFileForMatchingMRI();
@@ -345,6 +351,8 @@ private slots:
     void changedSmoothingAnatomy();
     void changedSmoothingfMRI();
     void changedSmoothingPET();
+    void changedEPITimeTagCorrection();
+    void changedPETTimeTagCorrection();
 
     void finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus);
     void displayEPI();

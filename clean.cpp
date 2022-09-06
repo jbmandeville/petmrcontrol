@@ -8,6 +8,20 @@ void MainWindow::createCleanPage()
     FUNC_ENTER;
     _cleanPage = new QWidget();
 
+    auto *EPILabel = new QLabel("EPI correction (seconds)");
+    auto *PETLabel = new QLabel("PET correction (seconds)");
+    _correctEPITimeTags = new QLineEdit("0");
+    _correctPETTimeTags = new QLineEdit("0");
+    connect(_correctEPITimeTags, SIGNAL(editingFinished()), this, SLOT(changedEPITimeTagCorrection()));
+    connect(_correctPETTimeTags, SIGNAL(editingFinished()), this, SLOT(changedPETTimeTagCorrection()));
+    auto *correctLayout = new QGridLayout();
+    correctLayout->addWidget(EPILabel,0,0);
+    correctLayout->addWidget(PETLabel,0,1);
+    correctLayout->addWidget(_correctEPITimeTags,1,0);
+    correctLayout->addWidget(_correctPETTimeTags,1,1);
+    auto *correctBox = new QGroupBox("Very rare timing corrections (overwrite time tag files)");
+    correctBox->setLayout(correctLayout);
+
     _cleanScanTypesBox = new QListWidget();
     _cleanScanTypesBox->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::MinimumExpanding);
     _cleanScanTypesBox->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
@@ -47,6 +61,7 @@ void MainWindow::createCleanPage()
     actionBox->setLayout(actionLayout);
 
     auto *pageLayout = new QVBoxLayout();
+    pageLayout->addWidget(correctBox);
     pageLayout->addWidget(typeBox);
     pageLayout->addWidget(actionBox);
 
