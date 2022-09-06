@@ -90,20 +90,36 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     QSize iconSizeSmall(24,24);
     const QIcon *showOutputBrowser = new QIcon(":/My-Icons/textOutput.png");
-    _outputBrowserAction = new QAction(*showOutputBrowser,"browser",this);
-    _outputBrowserAction->setCheckable(true);
-    _outputBrowserAction->setChecked(false);
-    connect(_outputBrowserAction, SIGNAL(toggled(bool)), this, SLOT(showOutputBrowser(bool)));
-    _outputBrowserAction->setToolTip("Show or hide the process output window");
+    auto *outputBrowserAction = new QAction(*showOutputBrowser,"browser",this);
+    outputBrowserAction->setCheckable(true);
+    outputBrowserAction->setChecked(false);
+    connect(outputBrowserAction, SIGNAL(toggled(bool)), this, SLOT(showOutputBrowser(bool)));
+    outputBrowserAction->setToolTip("Show or hide the process output window");
 
-    _helpBrowserAction = new QAction("HELP",this);
-    _helpBrowserAction->setCheckable(true);
-    _helpBrowserAction->setChecked(false);
-    connect(_helpBrowserAction, SIGNAL(toggled(bool)), this, SLOT(showHelpBrowser(bool)));
-    _helpBrowserAction->setToolTip("Show or hide the help window");
+    auto *helpBrowserAction = new QAction("HELP",this);
+    helpBrowserAction->setCheckable(true);
+    helpBrowserAction->setChecked(false);
+    connect(helpBrowserAction, SIGNAL(toggled(bool)), this, SLOT(showHelpBrowser(bool)));
+    helpBrowserAction->setToolTip("Show or hide the help window");
 
     _outputBrowser = new QTextBrowser;
     _helpBrowser   = new QTextBrowser;
+    _helpBrowser->setOpenLinks(true);
+    _helpBrowser->setOpenExternalLinks(true);
+
+    _helpTool = new QWidget();
+    auto *buttonLayout = new QHBoxLayout();
+    auto *helpForward  = new QPushButton(">>");
+    auto *helpBackward = new QPushButton("<<");
+    buttonLayout->addWidget(helpBackward);
+    buttonLayout->addWidget(helpForward);
+    auto *layout   = new QVBoxLayout();
+    layout->addLayout(buttonLayout);
+    layout->addWidget(_helpBrowser);
+    _helpTool->setLayout(layout);
+
+    connect(helpBackward, SIGNAL(clicked()), this, SLOT(helpGoBackward()));
+    connect(helpForward,  SIGNAL(clicked()), this, SLOT(helpGoForward()));
 
     QWidget* spacer = new QWidget();
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -127,8 +143,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     QToolBar *sideToolBar = addToolBar(tr("tool bar"));
     sideToolBar->setIconSize(iconSizeSmall);
-    sideToolBar->addAction(_outputBrowserAction);
-    sideToolBar->addAction(_helpBrowserAction);
+    sideToolBar->addAction(outputBrowserAction);
+    sideToolBar->addAction(helpBrowserAction);
     sideToolBar->addWidget(spacer);
     sideToolBar->addAction(_showNotesAction);
     sideToolBar->addWidget(separator2);
@@ -153,7 +169,22 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     restoreGeometry(_savedSettings.imageWindowGeometry);
     _outputBrowser->restoreGeometry(_savedSettings.browserWindowGeometry);
-    _helpBrowser->restoreGeometry(_savedSettings.browserWindowGeometry);
+    _helpTool->restoreGeometry(_savedSettings.browserWindowGeometry);
+}
+
+void MainWindow::helpGoBackward()
+{
+    FUNC_ENTER;
+    _helpPageIndex--;
+    if ( _helpPageIndex < page_download ) _helpPageIndex = page_clean;
+    loadHelp(_helpPageIndex);
+}
+void MainWindow::helpGoForward()
+{
+    FUNC_ENTER;
+    _helpPageIndex++;
+    if ( _helpPageIndex > page_clean ) _helpPageIndex = page_download;
+    loadHelp(_helpPageIndex);
 }
 
 void MainWindow::readSubjectVariables()
@@ -444,15 +475,30 @@ void MainWindow::loadHelp(int whichTab)
 
     QFile inFile;
     if ( whichTab == page_download )
+    {
         inFile.setFileName(":/My-Text/help-download");
+        _helpTool->setWindowTitle("Help - Downloads");
+    }
     else if ( whichTab == page_anatomy )
+    {
         inFile.setFileName(":/My-Text/help-anatomy");
+        _helpTool->setWindowTitle("Help - Anatomy");
+    }
     else if ( whichTab == page_fMRI )
+    {
         inFile.setFileName(":/My-Text/help-fmri");
+        _helpTool->setWindowTitle("Help - fMRI");
+    }
     else if ( whichTab == page_PET )
+    {
         inFile.setFileName(":/My-Text/help-pet");
+        _helpTool->setWindowTitle("Help - PET");
+    }
     else if ( whichTab == page_clean )
+    {
         inFile.setFileName(":/My-Text/help-clean");
+        _helpTool->setWindowTitle("Help - Cleanup");
+    }
     else
         return;
     if (!inFile.open(QIODevice::ReadOnly | QIODevice::Text))

@@ -105,13 +105,13 @@ private:
     QWidget *_petPage;
     QWidget *_cleanPage;
     QStatusBar *_statusBar;
-    QAction *_outputBrowserAction;
-    QAction *_helpBrowserAction;
     QVector<QTextEdit *> _noteBox;
     QAction *_showNotesAction;
 
     QTextBrowser *_outputBrowser;
+    QWidget *_helpTool;
     QTextBrowser *_helpBrowser;
+    int _helpPageIndex=0;
 
     // Radiobuttons
     QRadioButton *_radioButtonHumanBay7;
@@ -307,11 +307,13 @@ private slots:
     }
     inline void showHelpBrowser(bool show)
     {
-        if ( show ) _helpBrowser->show();
-        else        _helpBrowser->hide();
+        if ( show ) _helpTool->show();
+        else        _helpTool->hide();
     }
     void showNone();
     void showNotes(bool show);
+    void helpGoBackward();
+    void helpGoForward();
 
     inline void changedAnatomyFileName(int indexInBox) {enableAnatomyActionButtons();}
     void changedAnatomyDirName(int indexInBox);
