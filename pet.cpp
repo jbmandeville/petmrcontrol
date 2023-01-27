@@ -351,6 +351,7 @@ void MainWindow::updatePETDirBox(int indexInBox)
     {
         QString fileName = "pet/" + _petDirBox->currentText() + "/time-tags.txt";
         getTimeTags(fileName,_PETTimeCorrection,_petFile.timeTags,_petFile.timeText);
+        if ( _petFile.timeText.size() > 0 ) _petTime->setText(_petFile.timeText.at(0));
         getDimensions(_petFile.name, _petFile.dim);
         FUNC_INFO << "dim.t" << _petFile.dim.t;
         findPETandFMRIOverlap();

@@ -32,8 +32,9 @@ class MainWindow : public QMainWindow
 
 private:
 
-//    QString _fastmapProcess     = "/homes/1/jbm/space1/dev/build-FM-Desktop_Qt_5_6_2_GCC_64bit-Release/FM";
-    QString _fastmapProcess     = "/usr/pubsw/packages/jip/bin/Linux-x86_64/FM";
+    QString _fastmapProcess     = "/homes/1/jbm/space1/dev/build-FM-Desktop_Qt_5_6_2_GCC_64bit-Release/FM";
+//    QString _fastmapProcess     = "/usr/pubsw/packages/jip/bin/Linux-x86_64/FM";
+    QString _jipProcess         = "/usr/pubsw/packages/jip/bin/Linux-x86_64/jip";
     QString _findsessionProcess = "/usr/pubsw/bin/findsession";
     QString _dicomDumpProcess   = "/usr/bin/dcmdump";
     QString _scriptDirectory    = "/space/deltabp/1/users/public/script/analyze-petmr/";
@@ -146,10 +147,13 @@ private:
     // fMRI page
     QListWidget *_fMRIRunItemBox;
     QVector<QListWidgetItem> _fMRIRunItems;
+    QLabel *_anatomyTime;
+    QLabel *_petTime;
     QComboBox *_fMRITemplateDirBox; // an existing directory
     QComboBox *_fMRIFileBox;          // "raw.nii or "mrangeLabelc.nii"
     QLineEdit *_fMRIMCRange;              // e.g. 1-10
     QPushButton *_doEverythingEPIButton;
+    QPushButton *_alignEPIToAnatomyButton;
     QPushButton *_resliceEPIButton;
     QPushButton *_motionCorrectEPIButton;
     QPushButton *_alignEPIButton;
@@ -226,8 +230,10 @@ private:
     void populateEPIFileNameBox();
     void setDefaultIndexEPIFileNameBox();
     void updateEPIFileNameBox(QString fileName);
-    void writeJipCommandFileForMCAveraging();
+    void writeJipCommandFileForMCAveraging(QString &comFileName);
     QString readJipCommandFileForMCAveraging();
+    void createEPITemplate(bool MC);
+    void motionCorrectEPI();
 
     void updatePETFileNameBox(QString fileName);
     void updatePETFileNameBox();
@@ -341,13 +347,18 @@ private slots:
 
     void doEverthingEPI();
     void resliceEPI();
-    void motionCorrectEPI();
+    inline void createTemplateAndMotionCorrectEPI() {createEPITemplate(true);}
+    inline void alignEPIToAnatomy() {createEPITemplate(false);}
+    inline void motionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus ) {motionCorrectEPI();}
+    void alignEPIToReslicedAnatomy(int exitCode, QProcess::ExitStatus exitStatus);
+    void resliceAnatomyToEPI(int exitCode, QProcess::ExitStatus exitStatus);
     void alignEPI();
     void changefMRITemplateDirectory(int indexInBox);
     void changedfMRIFileName(int indexInBox);
     void finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitStatus );
     void finishedLinkResliceEPI(int exitCode, QProcess::ExitStatus exitStatus );
     void finishedFMAlignEPI(int exitCode, QProcess::ExitStatus exitStatus );
+    void finishedAlignEPIToReslicedAnatomy(int exitCode, QProcess::ExitStatus exitStatus);
     void changedfMRIRunCheckBox(QListWidgetItem* item);
     void changedDownloadScanCheckBox(QListWidgetItem *item);
     void changedSmoothingAnatomy();

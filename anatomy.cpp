@@ -166,6 +166,11 @@ void MainWindow::openedAnatomyPage()
         _anatomyDirBox->addItem(folderList.at(jList));
     _anatomyDirBox->setCurrentIndex(_anatomyDirBox->count()-1);
 
+    QString fileName = "t1/" + _anatomyDirBox->currentText() + "/time-tags.txt";
+    dVector timeTags;  sVector timeText;
+    getTimeTags(fileName,0,timeTags,timeText);
+    if ( timeText.size() > 0 ) _anatomyTime->setText(timeText.at(0));
+
     readSmoothing(0);
     readSmoothing(1);
     readSmoothing(2);

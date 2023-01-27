@@ -32,6 +32,10 @@ void MainWindow::createfMRIPage()
     auto *runsBox = new QGroupBox("List of EPI runs to include in analysis");
     runsBox->setLayout(runsLayout);
 
+    auto *anatomyTimeLabel = new QLabel("anatomy time");
+    auto *petTimeLabel     = new QLabel("PET time");
+    _anatomyTime = new QLabel("?");
+    _petTime = new QLabel("?");
     auto *templateLabel = new QLabel("directory");
     auto *rangeLabel    = new QLabel("averaging range");
     _fMRITemplateDirBox = new QComboBox();
@@ -41,10 +45,14 @@ void MainWindow::createfMRIPage()
     _fMRIMCRange->setMaximumWidth(150);
 
     auto *mcLayout = new QGridLayout();
-    mcLayout->addWidget(templateLabel,0,0);
-    mcLayout->addWidget(_fMRITemplateDirBox,0,1);
-    mcLayout->addWidget(rangeLabel,0,2);
-    mcLayout->addWidget(_fMRIMCRange,0,3);
+    mcLayout->addWidget(anatomyTimeLabel,0,0);
+    mcLayout->addWidget(_anatomyTime,0,1);
+    mcLayout->addWidget(petTimeLabel,0,2);
+    mcLayout->addWidget(_petTime,0,3);
+    mcLayout->addWidget(templateLabel,1,0);
+    mcLayout->addWidget(_fMRITemplateDirBox,1,1);
+    mcLayout->addWidget(rangeLabel,1,2);
+    mcLayout->addWidget(_fMRIMCRange,1,3);
     auto *mcBox = new QGroupBox("Motion-correction template");
     mcBox->setLayout(mcLayout);
 
@@ -63,17 +71,20 @@ void MainWindow::createfMRIPage()
     _doEverythingEPIButton->setEnabled(false);
     _doEverythingEPIButton->setCheckable(true);
 
-    _resliceEPIButton       = new QPushButton("reslice runs as necessary (raw --> reslice)",_fmriPage);
-    _motionCorrectEPIButton = new QPushButton("motion-correct runs (raw/reslice -->mc)",_fmriPage);
-    _alignEPIButton         = new QPushButton("Align to template (raw/reslice/mc -> align)",_fmriPage);
+    _resliceEPIButton        = new QPushButton("reslice runs as necessary (raw --> reslice)",_fmriPage);
+    _alignEPIToAnatomyButton = new QPushButton("align EPI template to anatomy",_fmriPage);
+    _motionCorrectEPIButton  = new QPushButton("motion-correct runs (raw/reslice -->mc)",_fmriPage);
+    _alignEPIButton          = new QPushButton("Align to template (raw/reslice/mc -> align)",_fmriPage);
     connect(_doEverythingEPIButton,  SIGNAL(clicked(bool)), this, SLOT(doEverthingEPI()));
     connect(_resliceEPIButton,       SIGNAL(pressed()), this, SLOT(resliceEPI()));
-    connect(_motionCorrectEPIButton, SIGNAL(pressed()), this, SLOT(motionCorrectEPI()));
+    connect(_alignEPIToAnatomyButton,SIGNAL(pressed()), this, SLOT(alignEPIToAnatomy()));
+    connect(_motionCorrectEPIButton, SIGNAL(pressed()), this, SLOT(createTemplateAndMotionCorrectEPI()));
     connect(_alignEPIButton,         SIGNAL(pressed()), this, SLOT(alignEPI()));
 
     auto *actionLayout = new QVBoxLayout();
     actionLayout->addWidget(_doEverythingEPIButton);
     actionLayout->addWidget(_resliceEPIButton);
+    actionLayout->addWidget(_alignEPIToAnatomyButton);
     actionLayout->addWidget(_motionCorrectEPIButton);
     actionLayout->addWidget(_alignEPIButton);
 
@@ -99,7 +110,7 @@ void MainWindow::doEverthingEPI()
     if ( _resliceEPIButton->isEnabled() )
         resliceEPI();
     else
-        motionCorrectEPI();
+        alignEPIToAnatomy();
 }
 
 void MainWindow::changedfMRIRunCheckBox(QListWidgetItem *item)
@@ -155,6 +166,7 @@ void MainWindow::openedfMRIPage()
 {
     FUNC_ENTER;
     openedAnatomyPage();
+    openedPETPage();
 
     qInfo() << "query EPI data";
     QDir const fMRITopDir("./epi");
@@ -361,12 +373,16 @@ void MainWindow::enableEPIActionButtons()
     bool selectRaw     = !_fMRIFileBox->currentText().compare("raw.nii");
     bool selectReslice = !_fMRIFileBox->currentText().compare("reslice.nii");
     bool selectMC      = !_fMRIFileBox->currentText().compare("mc.nii");
-    _motionCorrectEPIButton->setEnabled(allSameDimension && (selectRaw || selectReslice));
+    bool EPITemplateExists = epiFileExists("mcTemplate.nii");
+    _motionCorrectEPIButton->setEnabled(EPITemplateExists && allSameDimension && (selectRaw || selectReslice));
     _alignEPIButton->setEnabled(allSameDimension && (selectRaw || selectReslice || selectMC));
     _doEverythingEPIButton->setEnabled(selectRaw);
 
+    // check off tasks by coloration
     if ( epiFileExists("reslice.nii") )
         _resliceEPIButton->setStyleSheet("background-color:lightYellow;");
+    if ( EPITemplateExists )
+        _alignEPIToAnatomyButton->setStyleSheet("background-color:lightYellow;");
     if ( epiFileExists("mc.nii") )
         _motionCorrectEPIButton->setStyleSheet("background-color:lightYellow;");
     if ( epiFileExists("align.nii") )
@@ -375,23 +391,116 @@ void MainWindow::enableEPIActionButtons()
         _doEverythingEPIButton->setStyleSheet("background-color:lightYellow;");
     }
 
-
     FUNC_EXIT << allSameDimension;
+}
+
+void MainWindow::createEPITemplate(bool MC)
+{
+    // write a jip command file
+    QString comFileName;
+    writeJipCommandFileForMCAveraging(comFileName);
+
+    // use jip to create the MC template, and then go on to the next step
+    auto *process = new QProcess();
+    if ( MC ) // go onto motion correction
+        connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),this, SLOT(motionCorrectEPI(int, QProcess::ExitStatus)));
+    else      // go onto reslicing anatomy to EPI (1st stage in aligning EPI to anatomy)
+        connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),this, SLOT(resliceAnatomyToEPI(int, QProcess::ExitStatus)));
+    QString message = "Create EPI template (fast)";
+    QStringList arguments;
+    arguments.append(comFileName);
+    spawnProcess(process,_jipProcess,arguments,message,"");
+}
+
+void MainWindow::resliceAnatomyToEPI(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
+    // aligning EPI to anatomy takes 3 steps:
+    // 2) reslice anatomy ("brain") into EPI space
+    // 3) align EPI template to resliced anatomy (using fastmap, 6 parameters)
+
+    QString brainName = "t1/" + _anatomyDirBox->currentText() + "/brain.nii";
+    QString templateFileName = "./epi/" + _fMRITemplateDirBox->currentText() + "/mcTemplateRaw.nii";
+    QStringList arguments;
+    arguments.append(brainName);
+    arguments.append("-a");
+    arguments.append(templateFileName);
+    arguments.append("--preprocess");
+    arguments.append("reslice");
+    arguments.append("--smoothing");
+    arguments.append("0");
+    arguments.append("--output-file");
+    arguments.append("resliceBrain");
+    arguments.append("--quit");
+
+    auto *process = new QProcess();
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),this, SLOT(alignEPIToReslicedAnatomy(int, QProcess::ExitStatus)));
+    QString message = "Reslice anatomy to EPI (fast)";
+    spawnProcess(process,_fastmapProcess,arguments,message,"");
+
+    FUNC_EXIT;
+}
+
+void MainWindow::alignEPIToReslicedAnatomy(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
+
+    QString anatomyName = "t1/" + _anatomyDirBox->currentText() + "/resliceBrain.nii";
+    QString templateFileName = "./epi/" + _fMRITemplateDirBox->currentText() + "/mcTemplateRaw.nii";
+    QStringList arguments;
+    arguments.append(templateFileName);
+    arguments.append("-a");
+    arguments.append(anatomyName);
+    arguments.append("--open");
+    arguments.append("align");
+    arguments.append("--output-file");
+    arguments.append("mcTemplate");
+
+    auto *process = new QProcess();
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),this, SLOT(finishedAlignEPIToReslicedAnatomy(int, QProcess::ExitStatus)));
+    QString message = "Align EPI to Anatomy (interactive: use 6 rigid-body parameters)";
+    spawnProcess(process,_fastmapProcess,arguments,message,"");
+
+    QMessageBox msgBox;
+    QString line1 = "1) Click Affine radio button and select 6 rigid-body parameters\n";
+    QString line2 = "2) Check/adjust alignment (calculator button)\n";
+    QString line3 = "3) Run images through alignment pipeline (run button)\n";
+    QString line4 = "4) Save images (next to run button)\n";
+    QString line5 = "5) quit gracefully (control-q or menu exit)";
+    QString text = line1 + line2 + line3 + line4 + line5;
+    msgBox.setText(text);
+    msgBox.setIcon(QMessageBox::Information);
+    msgBox.exec();
+
+    FUNC_EXIT;
+}
+
+void MainWindow::finishedAlignEPIToReslicedAnatomy(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    qInfo() << "finished: align EPI to anatomy";
+    updateEPIFileNameBox("mc.nii");
+    finishedProcess();
+    if ( _doEverythingEPIButton->isChecked() )
+    {
+        _alignEPIToAnatomyButton->setStyleSheet("background-color:lightYellow;");
+        _motionCorrectEPIButton->setStyleSheet("background-color:white;");
+        motionCorrectEPI();
+    }
+    else
+        enableEPIActionButtons();
 }
 
 void MainWindow::resliceEPI()
 {
     FUNC_ENTER;
+
     auto *process = new QProcess();
     connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
             this, SLOT(finishedFMResliceEPI(int, QProcess::ExitStatus)));
 
     QStringList arguments;
-    arguments.append("-O");
-    arguments.append("reslice");
     arguments.append("-a");
-    QString templateFileName = "./epi/" + _fMRITemplateDirBox->currentText()
-            + "/" + _fMRIFileBox->currentText();
+    QString templateFileName = "./epi/" + _fMRITemplateDirBox->currentText() + "/" + _fMRIFileBox->currentText();
     arguments.append(templateFileName);
     arguments.append("--preprocess");
     arguments.append("reslice");
@@ -417,7 +526,7 @@ void MainWindow::resliceEPI()
 
     FUNC_EXIT;
 }
-void MainWindow::finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitStatus )
+void MainWindow::finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitStatus)
 {
     qInfo() << "finished: reslice EPI";
     FUNC_INFO << "exit code" << exitCode << "exit status" << exitStatus;
@@ -440,8 +549,7 @@ void MainWindow::finishedFMResliceEPI(int exitCode, QProcess::ExitStatus exitSta
     }
 
     auto *process = new QProcess();
-    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
-            this, SLOT(finishedLinkResliceEPI(int, QProcess::ExitStatus)));
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),this, SLOT(finishedLinkResliceEPI(int, QProcess::ExitStatus)));
 
     QString message = "Link non-resliced raw.nii files to `reslice.nii' for consistency.";
     spawnProcess(process,exe,arguments,message,"");
@@ -462,7 +570,7 @@ void MainWindow::finishedLinkResliceEPI(int exitCode, QProcess::ExitStatus exitS
         _motionCorrectEPIButton->setStyleSheet("background-color:white;");
         _alignEPIButton->setStyleSheet("background-color:white;");
         enableEPIActionButtons();
-        motionCorrectEPI();
+        alignEPIToAnatomy();
     }
     else
         enableEPIActionButtons();
@@ -555,18 +663,18 @@ void MainWindow::finishedFMAlignEPI(int exitCode, QProcess::ExitStatus exitStatu
     }
 }
 
-void MainWindow::writeJipCommandFileForMCAveraging()
+void MainWindow::writeJipCommandFileForMCAveraging(QString &comFileName)
 {
     FUNC_ENTER;
-    QString fileName = "epi/" + _fMRITemplateDirBox->currentText() + "/makeMCTemplate.com";
-    QFile file(fileName);
+    comFileName = "epi/" + _fMRITemplateDirBox->currentText() + "/makeMCTemplate.com";
+    QFile file(comFileName);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         return;
     QTextStream out(&file);
 
     out << "# create template file for motion-correction" << "\n";
     QString inputFileName  = "epi/" + _fMRITemplateDirBox->currentText() + "/" + _fMRIFileBox->currentText();
-    QString outputFileName = "epi/" + _fMRITemplateDirBox->currentText() + "/mcTemplate.nii";
+    QString outputFileName = "epi/" + _fMRITemplateDirBox->currentText() + "/mcTemplateRaw.nii";
     out << "read " << inputFileName << ">" << _fMRIMCRange->text() << " all\n";
     out << "average av\n";
     out << "write " << outputFileName << " av\n";
@@ -589,21 +697,12 @@ QString MainWindow::readJipCommandFileForMCAveraging()
 }
 
 void MainWindow::motionCorrectEPI()
-{
-    writeJipCommandFileForMCAveraging();
-
-    auto *process = new QProcess();
-    QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
-    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedMotionCorrectEPI(int, QProcess::ExitStatus)));
-
-    process->setProcessChannelMode(QProcess::MergedChannels);
+{ // the motion-correction template must exist prior to this function
 
     QString exe = _scriptDirectory + "motionCorrectEPI.csh";
     QStringList arguments;
-    // arguments: [MC template dir] [template range (e.g. 1-10)] [list of files: "epi/011/reslice.nii ..."]
+    // arguments: [MC template dir] [list of files: "epi/011/reslice.nii ..."]
     arguments.append(_fMRITemplateDirBox->currentText());
-    QString comFileName = "epi/" + _fMRITemplateDirBox->currentText() + "/makeMCTemplate.com";
-    arguments.append(comFileName);
     // list of EPI directories to motion-correct ...
     for (int jFile=0; jFile<_fMRIFiles.size(); jFile++)
     {
@@ -611,9 +710,16 @@ void MainWindow::motionCorrectEPI()
         if ( includeFile )
             arguments.append(_fMRIFiles[jFile].name);
     }
+
+    auto *process = new QProcess();
+    QObject::connect(process, &QProcess::readyReadStandardOutput, this, &MainWindow::outputToBrowser);
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(finishedMotionCorrectEPI(int, QProcess::ExitStatus)));
+    process->setProcessChannelMode(QProcess::MergedChannels);
+
     QString message = "Motion-correct EPI; get a coffee and snack";
     spawnProcess(process,exe,arguments,message,"Motion-correct EPI");
 }
+
 void MainWindow::finishedMotionCorrectEPI(int exitCode, QProcess::ExitStatus exitStatus)
 {
     qInfo() << "finished: motion-correct EPI";
